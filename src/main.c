@@ -9,21 +9,29 @@
 #include <sys/time.h>
 #include <gif_lib.h>
 #include "filters.h"
+#include <mpi.h>
+#include <unistd.h>
+#include <stdio.h>
+
 int main( int argc, char ** argv )
 {
-
     char * input_filename ; 
     char * output_filename ;
     animated_gif * image ;
     struct timeval t1, t2;
     double duration ;
-
+    int totalProcess, processRank;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &totalProcess);
+    MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+ 	
     if ( argc < 3 )
     {
         fprintf( stderr, "Usage: %s input.gif output.gif \n", argv[0] ) ;
         return 1 ;
     }
 
+    if(processRank == 0) {
     input_filename = argv[1] ;
     output_filename = argv[2] ;
 
@@ -41,6 +49,21 @@ int main( int argc, char ** argv )
 
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
             input_filename, image->n_images, duration ) ;
+
+    // Distributing images to each group of processes.
+    
+   int numberOfImages = image->n_images;
+   int numberOfProcessesPerImage = totalProcess / numberOfImages;
+   int remainingProcesses = totalProcess - numberOfProcessesPerImage * numberOfImages;
+   
+   for (int i = 0; i < numberOfImages; i++) {
+     for (int j = 0; j < numberOfProcessesPerImage; j++) {
+       MPI_Isend(image->p[i], image->width[i] * image->height[i], MPI_INT, i + j, i + j, MPI_COMM_WORLD);  
+     }
+   }
+   } else {
+     MPI_Recv(
+   }
 
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
