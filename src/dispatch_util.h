@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
+// Fill in R,G, B components arrays from pixel image.
 inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size) {
   int j;
   red = malloc(size * sizeof(int));
@@ -14,6 +15,7 @@ inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size
   }
 }
 
+//Send image information to a fiven process.
 inline void sendImageToProcess(int width, int height, int *red, int *green, int *blue, int dest) {
   MPI_Isend(&width, 1, MPI_INT, dest, 0, MPI_COMM_WORLD, NULL);
   MPI_Isend(&height, 1, MPI_INT, dest, 1, MPI_COMM_WORLD, NULL);
@@ -22,6 +24,7 @@ inline void sendImageToProcess(int width, int height, int *red, int *green, int 
   MPI_Isend(green, width * height, MPI_INT, dest, 4, MPI_COMM_WORLD, NULL);
 }
 
+//Receives image from root process.
 inline void receiveImage(int *width, int *height, pixel *image) {
   int W, H;
   MPI_Recv(&W, 1, MPI_INT, 0, 0 , MPI_COMM_WORLD, NULL);
@@ -43,6 +46,7 @@ inline void receiveImage(int *width, int *height, pixel *image) {
   *height = H;
 }
 
+// Dispatch Images of a gif from root process to other processes and returns the received image.
 inline pixel *dispatchImages(int processRank, int totalProcess, animated_gif *image) {
   if (processRank == 0) {
   int numberOfImages = image->n_images;
