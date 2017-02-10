@@ -134,9 +134,13 @@ int main( int argc, char ** argv )
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
             input_filename, image->n_images, duration ) ;
     }
-       // Distributing images to each group of processes.
-    processedImage = dispatchImages(processRank, totalProcess, image);
 
+    // Distributing images to each group of processes.
+    gettimeofday(&t1, NULL);
+    processedImage = dispatchImages(processRank, totalProcess, image);
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf("%d image(s) dispatched to %d processes in %lf s.\n", image->n_images, totalProcess, duration);
     if(false) {
 
     /* GRAY_FILTER Timer start */
