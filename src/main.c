@@ -24,8 +24,31 @@ pixel *dispatchImages(int processRank, int totalProcess, animated_gif *image) {
   fprintf(stderr, "Remaining processes : %d. \n", remainingProcesses);
 
   int i,j;
-  // Sending images to processes.
-  for (i = 0; i < numberOfImages; i++) {
+  int processCount = 0;
+  // Sending images to processes
+  for (i = 0; i < remainingProcesses; i++) {
+  int size = image->width[i] * image->height[i];
+  int *red = malloc(size * sizeof(int));
+  int *blue = malloc(size * sizeof(int));
+  int *green = malloc(size * sizeof(int));
+    /* Copying image pixels into three arrays */
+    for (j = 0; j < size; j++) {
+      red[j] = image->p[i][j].r;
+      blue[j] = image->p[i][j].b;
+      green[j] = image->p[i][j].g;
+    }
+    /* Sending information to processes */
+    for (j = 0; j < numberOfProcessesPerImage + 1; j++) {
+     if (processCount == 0) {processCount ++; continue;}
+      fprintf(stderr, "Sending image number %d to process %d.\n", i, processCount);
+      MPI_Isend(&image->width[i], 1, MPI_INT, processCount, 0, MPI_COMM_WORLD, &request);
+      MPI_Isend(&image->height[i], 1, MPI_INT, processCount, 1, MPI_COMM_WORLD, &request);
+      MPI_Isend(red, size, MPI_INT, processCount, 2, MPI_COMM_WORLD, &request);
+      MPI_Isend(blue, size, MPI_INT, processCount, 3, MPI_COMM_WORLD, &request);
+      MPI_Isend(green, size, MPI_INT, processCount, 4, MPI_COMM_WORLD, &request);
+    }
+  }
+  for (i = remainingProcesses; i < numberOfImages; i++) {
   int size = image->width[i] * image->height[i];
   int *red = malloc(size * sizeof(int));
   int *blue = malloc(size * sizeof(int));
@@ -38,38 +61,15 @@ pixel *dispatchImages(int processRank, int totalProcess, animated_gif *image) {
     }
     /* Sending information to processes */
     for (j = 0; j < numberOfProcessesPerImage; j++) {
-     if (i == 0 && j == 0) continue;
-      fprintf(stderr, "Sending image number %d to process %d.\n", i, i * numberOfProcessesPerImage + j);
-      MPI_Isend(&image->width[i], 1, MPI_INT, i * numberOfProcessesPerImage + j, 0, MPI_COMM_WORLD, &request);
-      MPI_Isend(&image->height[i], 1, MPI_INT, i * numberOfProcessesPerImage + j, 1, MPI_COMM_WORLD, &request);
-      MPI_Isend(red, size, MPI_INT, i * numberOfProcessesPerImage + j, 2, MPI_COMM_WORLD, &request);
-      MPI_Isend(blue, size, MPI_INT, i * numberOfProcessesPerImage + j, 3, MPI_COMM_WORLD, &request);
-      MPI_Isend(green, size, MPI_INT, i * numberOfProcessesPerImage + j, 4, MPI_COMM_WORLD, &request);
+     if (processCount == 0) {processCount ++; continue;}
+      fprintf(stderr, "Sending image number %d to process %d.\n", i, processCount);
+      MPI_Isend(&image->width[i], 1, MPI_INT, processCount, 0, MPI_COMM_WORLD, &request);
+      MPI_Isend(&image->height[i], 1, MPI_INT, processCount, 1, MPI_COMM_WORLD, &request);
+      MPI_Isend(red, size, MPI_INT, processCount, 2, MPI_COMM_WORLD, &request);
+      MPI_Isend(blue, size, MPI_INT, processCount, 3, MPI_COMM_WORLD, &request);
+      MPI_Isend(green, size, MPI_INT, processCount, 4, MPI_COMM_WORLD, &request);
     }
   }
-  /* Sending remaining info to last processes */
-   int size = image->width[numberOfImages - 1] * image->height[numberOfImages - 1];
-   int *red = malloc(size * sizeof(int));
-   int *blue = malloc(size * sizeof(int));
-   int *green = malloc(size * sizeof(int));
-    /* Copying image pixels into three arrays */
-    for (j = 0; j < size; j++) {
-      red[j] = image->p[numberOfImages - 1][j].r;
-      blue[j] = image->p[numberOfImages - 1][j].b;
-      green[j] = image->p[numberOfImages - 1][j].g;
-    }
-
-    int count = (numberOfProcessesPerImage) * (numberOfImages) + 1;
-    fprintf(stderr, "Processes %d.\n", count);
-    while (count < totalProcess) {
-      fprintf(stderr, "Sending image number %d to process %d.\n", numberOfImages - 1, count);
-      MPI_Isend(&image->width[numberOfImages - 1], 1, MPI_INT, count, 0, MPI_COMM_WORLD, &request);
-      MPI_Isend(&image->height[numberOfImages - 1], 1, MPI_INT, count, 1, MPI_COMM_WORLD, &request);
-      MPI_Isend(red, size, MPI_INT, count, 2, MPI_COMM_WORLD, &request);
-      MPI_Isend(blue, size, MPI_INT, count, 3, MPI_COMM_WORLD, &request);
-      MPI_Isend(green, size, MPI_INT, count, 4, MPI_COMM_WORLD, &request);
-      count++;
-    }
   return image->p[0];
   } else {
     pixel *result;
