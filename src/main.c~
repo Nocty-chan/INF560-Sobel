@@ -27,7 +27,7 @@ int main( int argc, char ** argv )
     MPI_Comm_size(MPI_COMM_WORLD, &totalProcess);
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
     
-    printf("Rank is %d.\n", processRank);
+    //printf("Rank is %d.\n", processRank);
  	
     if ( argc < 3 )
     {
@@ -61,42 +61,68 @@ int main( int argc, char ** argv )
    int numberOfProcessesPerImage = totalProcess / numberOfImages;
    int remainingProcesses = totalProcess - numberOfProcessesPerImage * numberOfImages;
    fprintf(stderr, "Number of Processes Per Image is : %d. \n", numberOfProcessesPerImage);
-   fprintf(stderr, "Unexploited process : %d. \n", remainingProcesses);
+   fprintf(stderr, "Remaining processes : %d. \n", remainingProcesses);
    int i,j;
+   
+   
    for (i = 0; i < numberOfImages; i++) {
-     /*int size = image->width[i] * image->height[i];
-     int *red = malloc(size * sizeof(int));
-     int *blue = malloc(size * sizeof(int));
-     int *green = malloc(size * sizeof(int));
+   int size = image->width[i] * image->height[i];
+   int *red = malloc(size * sizeof(int));
+   int *blue = malloc(size * sizeof(int));
+   int *green = malloc(size * sizeof(int));
+     /* Copying image pixels into three arrays */
      for (j = 0; j < size; j++) {
        red[j] = image->p[i][j].r;
        blue[j] = image->p[i][j].b;
        green[j] = image->p[i][j].g; 
-     }*/
-
+     }
+     /* Sending information to processes */
      for (j = 0; j < numberOfProcessesPerImage; j++) {
       if (i == 0 && j == 0) continue;
-       fprintf(stderr, "Sending image number %d to process %d.\n", i, i + j);
-       MPI_Isend(&image->width[i], 1, MPI_INT, i + j, 0, MPI_COMM_WORLD, &request);
-       MPI_Isend(&image->height[i], 1, MPI_INT, i + j, 1, MPI_COMM_WORLD, &request);
-       /*MPI_Isend(red, size, MPI_INT, i + j, 2, MPI_COMM_WORLD);  
-       MPI_Isend(blue, size, MPI_INT, i + j, 3, MPI_COMM_WORLD);
-       MPI_Isend(green, size, MPI_INT, i + j, 4, MPI_COMM_WORLD);*/
+       fprintf(stderr, "Sending image number %d to process %d.\n", i, i * numberOfProcessesPerImage + j);
+       MPI_Isend(&image->width[i], 1, MPI_INT, i * numberOfProcessesPerImage + j, 0, MPI_COMM_WORLD, &request);
+       MPI_Isend(&image->height[i], 1, MPI_INT, i * numberOfProcessesPerImage + j, 1, MPI_COMM_WORLD, &request);
+       MPI_Isend(red, size, MPI_INT, i * numberOfProcessesPerImage + j, 2, MPI_COMM_WORLD, &request);  
+       MPI_Isend(blue, size, MPI_INT, i * numberOfProcessesPerImage + j, 3, MPI_COMM_WORLD, &request);
+       MPI_Isend(green, size, MPI_INT, i * numberOfProcessesPerImage + j, 4, MPI_COMM_WORLD, &request);
      }
    }
-    int count = (numberOfProcessesPerImage - 1) * (numberOfImages - 1) + 1;
+   /* Sending remaining info to last processes */
+    int size = image->width[numberOfImages - 1] * image->height[numberOfImages - 1];
+    int *red = malloc(size * sizeof(int));
+    int *blue = malloc(size * sizeof(int));
+    int *green = malloc(size * sizeof(int));
+     /* Copying image pixels into three arrays */
+     for (j = 0; j < size; j++) {
+       red[j] = image->p[numberOfImages - 1][j].r;
+       blue[j] = image->p[numberOfImages - 1][j].b;
+       green[j] = image->p[numberOfImages - 1][j].g; 
+     }
+
+     int count = (numberOfProcessesPerImage) * (numberOfImages) + 1;
+     fprintf(stderr, "Processes %d.\n", count);
      while (count < totalProcess) {
        fprintf(stderr, "Sending image number %d to process %d.\n", numberOfImages - 1, count);
        MPI_Isend(&image->width[numberOfImages - 1], 1, MPI_INT, count, 0, MPI_COMM_WORLD, &request);
        MPI_Isend(&image->height[numberOfImages - 1], 1, MPI_INT, count, 1, MPI_COMM_WORLD, &request);
+       MPI_Isend(red, size, MPI_INT, count, 2, MPI_COMM_WORLD, &request);  
+       MPI_Isend(blue, size, MPI_INT, count, 3, MPI_COMM_WORLD, &request);
+       MPI_Isend(green, size, MPI_INT, count, 4, MPI_COMM_WORLD, &request);
        count++;
      }
    } else {
      int width, height;
-     int *red, blue, green;
+
      MPI_Recv(&width, 1, MPI_INT, 0, 0 , MPI_COMM_WORLD, &status);
      MPI_Recv(&height, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
-     printf("Process number : %d received width %d and height %d. \n", processRank, width, height);
+     int size = width * height;
+     int *red = malloc(size * sizeof(int));
+     int *blue = malloc(size * sizeof(int));
+     int *green = malloc(size * sizeof(int));
+     MPI_Recv(red, width * height, MPI_INT, 0, 2 , MPI_COMM_WORLD, &status);
+     MPI_Recv(blue, width * height, MPI_INT, 0, 3, MPI_COMM_WORLD, &status);
+     MPI_Recv(green, width * height, MPI_INT, 0, 4, MPI_COMM_WORLD, &status);
+     fprintf(stderr, "Process number : %d received width d and height %d. \n", processRank, width, height);
    }
 
     if(false) {
