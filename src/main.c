@@ -21,9 +21,13 @@ int main( int argc, char ** argv )
     struct timeval t1, t2;
     double duration ;
     int totalProcess, processRank;
+    MPI_Request request;
+    MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &totalProcess);
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+    
+    printf("Rank is %d.\n", processRank);
  	
     if ( argc < 3 )
     {
@@ -50,20 +54,52 @@ int main( int argc, char ** argv )
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
             input_filename, image->n_images, duration ) ;
 
-    // Distributing images to each group of processes.
+       // Distributing images to each group of processes.
     
    int numberOfImages = image->n_images;
+   
    int numberOfProcessesPerImage = totalProcess / numberOfImages;
    int remainingProcesses = totalProcess - numberOfProcessesPerImage * numberOfImages;
-   
-   for (int i = 0; i < numberOfImages; i++) {
-     for (int j = 0; j < numberOfProcessesPerImage; j++) {
-       MPI_Isend(image->p[i], image->width[i] * image->height[i], MPI_INT, i + j, i + j, MPI_COMM_WORLD);  
+   fprintf(stderr, "Number of Processes Per Image is : %d. \n", numberOfProcessesPerImage);
+   fprintf(stderr, "Unexploited process : %d. \n", remainingProcesses);
+   int i,j;
+   for (i = 0; i < numberOfImages; i++) {
+     /*int size = image->width[i] * image->height[i];
+     int *red = malloc(size * sizeof(int));
+     int *blue = malloc(size * sizeof(int));
+     int *green = malloc(size * sizeof(int));
+     for (j = 0; j < size; j++) {
+       red[j] = image->p[i][j].r;
+       blue[j] = image->p[i][j].b;
+       green[j] = image->p[i][j].g; 
+     }*/
+
+     for (j = 0; j < numberOfProcessesPerImage; j++) {
+      if (i == 0 && j == 0) continue;
+       fprintf(stderr, "Sending image number %d to process %d.\n", i, i + j);
+       MPI_Isend(&image->width[i], 1, MPI_INT, i + j, 0, MPI_COMM_WORLD, &request);
+       MPI_Isend(&image->height[i], 1, MPI_INT, i + j, 1, MPI_COMM_WORLD, &request);
+       /*MPI_Isend(red, size, MPI_INT, i + j, 2, MPI_COMM_WORLD);  
+       MPI_Isend(blue, size, MPI_INT, i + j, 3, MPI_COMM_WORLD);
+       MPI_Isend(green, size, MPI_INT, i + j, 4, MPI_COMM_WORLD);*/
      }
    }
+    int count = (numberOfProcessesPerImage - 1) * (numberOfImages - 1) + 1;
+     while (count < totalProcess) {
+       fprintf(stderr, "Sending image number %d to process %d.\n", numberOfImages - 1, count);
+       MPI_Isend(&image->width[numberOfImages - 1], 1, MPI_INT, count, 0, MPI_COMM_WORLD, &request);
+       MPI_Isend(&image->height[numberOfImages - 1], 1, MPI_INT, count, 1, MPI_COMM_WORLD, &request);
+       count++;
+     }
    } else {
-     MPI_Recv(
+     int width, height;
+     int *red, blue, green;
+     MPI_Recv(&width, 1, MPI_INT, 0, 0 , MPI_COMM_WORLD, &status);
+     MPI_Recv(&height, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+     printf("Process number : %d received width %d and height %d. \n", processRank, width, height);
    }
+
+    if(false) {
 
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
@@ -110,6 +146,7 @@ int main( int argc, char ** argv )
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
     printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
-
+}
+    MPI_Finalize();
     return 0 ;
 }
