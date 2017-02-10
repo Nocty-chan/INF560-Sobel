@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-void dispatchImages(int processRank, int totalProcess, animated_gif *image) {
+pixel *dispatchImages(int processRank, int totalProcess, animated_gif *image) {
   MPI_Request request;
   MPI_Status status;
   if (processRank == 0) {
@@ -70,7 +70,9 @@ void dispatchImages(int processRank, int totalProcess, animated_gif *image) {
       MPI_Isend(green, size, MPI_INT, count, 4, MPI_COMM_WORLD, &request);
       count++;
     }
+  return image->p[0];
   } else {
+    pixel *result;
     int width, height;
     MPI_Recv(&width, 1, MPI_INT, 0, 0 , MPI_COMM_WORLD, &status);
     MPI_Recv(&height, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
@@ -78,10 +80,17 @@ void dispatchImages(int processRank, int totalProcess, animated_gif *image) {
     int *red = malloc(size * sizeof(int));
     int *blue = malloc(size * sizeof(int));
     int *green = malloc(size * sizeof(int));
+    result = malloc(size * sizeof(pixel));
     MPI_Recv(red, width * height, MPI_INT, 0, 2 , MPI_COMM_WORLD, &status);
     MPI_Recv(blue, width * height, MPI_INT, 0, 3, MPI_COMM_WORLD, &status);
     MPI_Recv(green, width * height, MPI_INT, 0, 4, MPI_COMM_WORLD, &status);
-    fprintf(stderr, "Process number : %d received width d and height %d. \n", processRank, width, height);
+    int i;
+    for (i = 0; i < size; i++) {
+      pixel p = {red[i], green[i], blue[i]};
+      result[i] = p;
+    }
+    fprintf(stderr, "Process number : %d received width %d and height %d. \n", processRank, width, height);
+    return result;
   }
 }
 
@@ -93,6 +102,7 @@ int main( int argc, char ** argv )
     struct timeval t1, t2;
     double duration ;
     int totalProcess, processRank;
+    pixel *processedImage;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &totalProcess);
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
@@ -125,7 +135,7 @@ int main( int argc, char ** argv )
             input_filename, image->n_images, duration ) ;
     }
        // Distributing images to each group of processes.
-   dispatchImages(processRank, totalProcess, image);
+    processedImage = dispatchImages(processRank, totalProcess, image);
 
     if(false) {
 
