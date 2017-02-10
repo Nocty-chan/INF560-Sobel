@@ -42,24 +42,38 @@ int main( int argc, char ** argv )
     printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
             input_filename, image->n_images, duration ) ;
 
-    /* FILTER Timer start */
+    /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
 
     /* Convert the pixels into grayscale */
     apply_gray_filter( image ) ;
+    
+    /* GRAY_FILTER Timer stop */
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf( "GRAY_FILTER done in %lf s\n", duration ) ;
+    
+    /* BLUR_FILTER Timer start */
+    gettimeofday(&t1, NULL);
 
     /* Apply blur filter with convergence value */
     apply_blur_filter( image, 5, 20 ) ;
+    
+    /* BLUR_FILTER Timer stop */
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf( "BLUR_FILTER done in %lf s\n", duration ) ;
+    
+    /* SOBEL_FILTER Timer start */
+    gettimeofday(&t1, NULL);
 
     /* Apply sobel filter on pixels */
     apply_sobel_filter( image ) ;
 
-    /* FILTER Timer stop */
+    /* SOBEL_FILTER Timer stop */
     gettimeofday(&t2, NULL);
-
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-
-    printf( "SOBEL done in %lf s\n", duration ) ;
+    printf( "SOBEL_FILTER done in %lf s\n", duration ) ;
 
     /* EXPORT Timer start */
     gettimeofday(&t1, NULL);
