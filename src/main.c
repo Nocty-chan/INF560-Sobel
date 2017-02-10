@@ -114,7 +114,6 @@ int main( int argc, char ** argv )
         fprintf( stderr, "Usage: %s input.gif output.gif \n", argv[0] ) ;
         return 1 ;
     }
-
     if(processRank == 0) {
     input_filename = argv[1] ;
     output_filename = argv[2] ;
@@ -124,7 +123,7 @@ int main( int argc, char ** argv )
 
     /* Load file and store the pixels in array */
     image = load_pixels( input_filename ) ;
-    if ( image == NULL ) { return 1 ; }
+    if (image == NULL || totalProcess < image->n_images) { return 1 ; }
 
     /* IMPORT Timer stop */
     gettimeofday(&t2, NULL);
@@ -141,6 +140,7 @@ int main( int argc, char ** argv )
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
     printf("%d image(s) dispatched to %d processes in %lf s.\n", image->n_images, totalProcess, duration);
+
     if(false) {
 
     /* GRAY_FILTER Timer start */
