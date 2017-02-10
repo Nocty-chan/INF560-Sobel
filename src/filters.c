@@ -91,9 +91,9 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
             {
                 for(k=size; k<width-size; k++)
                 {
-                    new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ; 
-                    new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ; 
-                    new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ; 
+                    new[CONV(j,k,width)].r = p[i][CONV(j,k,width)].r ;
+                    new[CONV(j,k,width)].g = p[i][CONV(j,k,width)].g ;
+                    new[CONV(j,k,width)].b = p[i][CONV(j,k,width)].b ;
                 }
             }
 
@@ -137,7 +137,7 @@ apply_blur_filter( animated_gif * image, int size, int threshold )
                     diff_g = (new[CONV(j  ,k  ,width)].g - p[i][CONV(j  ,k  ,width)].g) ;
                     diff_b = (new[CONV(j  ,k  ,width)].b - p[i][CONV(j  ,k  ,width)].b) ;
 
-                    if ( diff_r > threshold || -diff_r > threshold 
+                    if ( diff_r > threshold || -diff_r > threshold
                             ||
                              diff_g > threshold || -diff_g > threshold
                              ||
@@ -203,14 +203,14 @@ apply_sobel_filter( animated_gif * image )
                 pixel_blue    = p[i][CONV(j  ,k  ,width)].b ;
                 pixel_blue_e  = p[i][CONV(j  ,k+1,width)].b ;
 
-                deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o + 2*pixel_blue_e - pixel_blue_so + pixel_blue_se;             
+                deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o + 2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
 
                 deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so - pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
 
-                val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
+                val_blue = /*sqrt*/(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
 
 
-                if ( val_blue > 50 ) 
+                if ( val_blue > 50 )
                 {
                     sobel[CONV(j  ,k  ,width)].r = 255 ;
                     sobel[CONV(j  ,k  ,width)].g = 255 ;
