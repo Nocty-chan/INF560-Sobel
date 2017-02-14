@@ -51,7 +51,20 @@ int main( int argc, char ** argv )
     }
     //Broadcast number of images to everybody.
     MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    fprintf(stderr, "Process n %d knows that there are %d images", rankInWorld, numberOfImages);
+    fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
+
+    //Create communicators
+    MPI_Comm imageCommunicator;
+    int k = totalProcesses / numberOfImages;
+    int r = totalProcesses - k * numberOfImages;
+    int color;
+    if (rankInWorld <= (r - 1) * (k + 1) + k) {
+      color = rankInWorld / (k + 1);
+    } else {
+      color = (rankInWorld - r) / k;
+    }
+    MPI_Comm_split(MPI_COMM_WORLD, color, rankInWorld, &imageCommunicator);
+    fprintf(stderr, "Process  %d has been assigned to group %d. \n",rankInWorld, color);
 
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
@@ -98,6 +111,7 @@ int main( int argc, char ** argv )
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
     printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+    MPI_Comm_free(&imageCommunicator);
     MPI_Finalize();
     return 0 ;
 }
