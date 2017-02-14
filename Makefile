@@ -2,7 +2,7 @@ SRC_DIR=src
 HEADER_DIR=include
 OBJ_DIR=obj
 
-CC=gcc
+CC=mpicc
 CFLAGS=-O3 -I$(HEADER_DIR)
 LDFLAGS=-lm
 
@@ -30,7 +30,7 @@ OBJ= $(OBJ_DIR)/dgif_lib.o \
 	$(OBJ_DIR)/openbsd-reallocarray.o \
 	$(OBJ_DIR)/quantize.o \
 	$(OBJ_DIR)/load_util.o \
-	$(OBJ_DIR)/filters.o	
+	$(OBJ_DIR)/filters.o
 
 all: $(OBJ_DIR) sobelf
 

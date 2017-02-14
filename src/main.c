@@ -8,16 +8,18 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <gif_lib.h>
+#include <mpi.h>
 #include "filters.h"
 int main( int argc, char ** argv )
 {
 
-    char * input_filename ; 
+    char * input_filename ;
     char * output_filename ;
     animated_gif * image ;
     struct timeval t1, t2;
     double duration ;
 
+    MPI_Init(&argc, &argv);
     if ( argc < 3 )
     {
         fprintf( stderr, "Usage: %s input.gif output.gif \n", argv[0] ) ;
@@ -39,7 +41,7 @@ int main( int argc, char ** argv )
 
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    printf( "GIF loaded from file %s with %d image(s) in %lf s\n", 
+    printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
             input_filename, image->n_images, duration ) ;
 
     /* GRAY_FILTER Timer start */
@@ -47,23 +49,23 @@ int main( int argc, char ** argv )
 
     /* Convert the pixels into grayscale */
     apply_gray_filter( image ) ;
-    
+
     /* GRAY_FILTER Timer stop */
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
     printf( "GRAY_FILTER done in %lf s\n", duration ) ;
-    
+
     /* BLUR_FILTER Timer start */
     gettimeofday(&t1, NULL);
 
     /* Apply blur filter with convergence value */
     apply_blur_filter( image, 5, 20 ) ;
-    
+
     /* BLUR_FILTER Timer stop */
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
     printf( "BLUR_FILTER done in %lf s\n", duration ) ;
-    
+
     /* SOBEL_FILTER Timer start */
     gettimeofday(&t1, NULL);
 
@@ -87,6 +89,6 @@ int main( int argc, char ** argv )
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
     printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
-
+    MPI_Finalize();
     return 0 ;
 }
