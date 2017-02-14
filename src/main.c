@@ -17,6 +17,7 @@ int main( int argc, char ** argv )
     char * output_filename ;
     animated_gif * image ;
     struct timeval t1, t2;
+    int rankInWorld, totalProcesses, numberOfImages;
     double duration ;
 
     MPI_Init(&argc, &argv);
@@ -26,23 +27,31 @@ int main( int argc, char ** argv )
         return 1 ;
     }
 
-    input_filename = argv[1] ;
-    output_filename = argv[2] ;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rankInWorld);
+    MPI_Comm_size(MPI_COMM_WORLD, &totalProcesses);
+    if (rankInWorld == 0) {
+      input_filename = argv[1] ;
+      output_filename = argv[2] ;
 
-    /* IMPORT Timer start */
-    gettimeofday(&t1, NULL);
+      /* IMPORT Timer start */
+      gettimeofday(&t1, NULL);
 
-    /* Load file and store the pixels in array */
-    image = load_pixels( input_filename ) ;
-    if ( image == NULL ) { return 1 ; }
+      /* Load file and store the pixels in array */
+      image = load_pixels( input_filename ) ;
+      if ( image == NULL ) { return 1 ; }
 
-    /* IMPORT Timer stop */
-    gettimeofday(&t2, NULL);
+      /* IMPORT Timer stop */
+      gettimeofday(&t2, NULL);
 
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+      duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
-    printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
-            input_filename, image->n_images, duration ) ;
+      printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
+              input_filename, image->n_images, duration ) ;
+      numberOfImages = image->n_images;
+    }
+    //Broadcast number of images to everybody.
+    MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    fprintf(stderr, "Process n %d knows that there are %d images", rankInWorld, numberOfImages);
 
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
