@@ -15,7 +15,7 @@ inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size
   }
 }
 
-//Send image information to a fiven process.
+//Send image information to a given process.
 inline void sendImageToProcess(int width, int height, int *red, int *green, int *blue, int dest) {
   MPI_Isend(&width, 1, MPI_INT, dest, 0, MPI_COMM_WORLD, NULL);
   MPI_Isend(&height, 1, MPI_INT, dest, 1, MPI_COMM_WORLD, NULL);

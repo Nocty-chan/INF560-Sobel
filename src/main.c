@@ -21,7 +21,8 @@ int main( int argc, char ** argv )
     animated_gif * image ;
     struct timeval t1, t2;
     int rankInWorld, totalProcesses, numberOfImages;
-    double duration ;
+    double duration;
+    int width, height;
     MPI_Init(&argc, &argv);
     if ( argc < 3 )
     {
@@ -47,11 +48,13 @@ int main( int argc, char ** argv )
      printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
               input_filename, image->n_images, duration ) ;
       numberOfImages = image->n_images;
+      width = image->width[0];
+      height = image->height[0];
     }
 
-    //Broadcast number of images to everybody.
+    //Broadcast number of images, width and height to everybody.
     MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
+    //fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
     if (numberOfImages > totalProcesses) {
       fprintf(stderr, "Not enough processes.\n");
       return 1;
@@ -66,10 +69,55 @@ int main( int argc, char ** argv )
     } else {
       color = (rankInWorld - r) / k;
     }
-    MPI_Comm_split(MPI_COMM_WORLD, color, rankInWorld, &imageCommunicator);
-    fprintf(stderr, "Process  %d has been assigned to group %d. \n",rankInWorld, color);
 
+    MPI_Comm_split(MPI_COMM_WORLD, color, rankInWorld, &imageCommunicator);
+    int rankInGroup;
+    MPI_Comm_rank(imageCommunicator, &rankInGroup);
+    //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
+
+    //Send width and height of image to the root of each group.
+    int c;
+    MPI_Status status;
+    MPI_Request request;
     if (rankInWorld == 0) {
+      for (c = 1; c < r; c++) {
+          MPI_Isend(&image->width[c], 1, MPI_INT, c * (k + 1), 0, MPI_COMM_WORLD, &request);
+          MPI_Isend(&image->height[c], 1, MPI_INT, c * (k + 1), 1, MPI_COMM_WORLD, &request);
+          fprintf(
+            stderr,
+            "Sending Width: %d and height: %d for image %d to process %d. \n ",
+            image->width[c],
+            image->height[c],
+            c,
+            c * (k + 1));
+      }
+      for (c = r; c < numberOfImages; c++) {
+        if (c == 0) continue;
+        MPI_Isend(&image->width[c], 1, MPI_INT, c * k + r, 0, MPI_COMM_WORLD, &request);
+        MPI_Isend(&image->height[c], 1, MPI_INT, c * k + r, 1, MPI_COMM_WORLD, &request);
+        fprintf(
+          stderr,
+          "Sending Width: %d and height: %d for image %d to process %d.\n ",
+          image->width[c],
+          image->height[c],
+          c,
+          c * k + r);
+      }
+    }
+
+    if (rankInGroup == 0 && rankInWorld != 0) {
+      MPI_Recv(&width, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+      MPI_Recv(&height, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+      fprintf(
+        stderr,
+        "Process : %d is receiving width %d  and height %d of color %d.\n",
+        rankInWorld,
+        width,
+        height,
+        color);
+    }
+
+    if (false) {
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
 
