@@ -33,9 +33,7 @@ int main( int argc, char ** argv )
     /* Information for image processed by communicator */
     int width, height;
     pixel *picture;
-    /* Variables for communications */
-    MPI_Status status;
-    MPI_Request request;
+
 
     MPI_Init(&argc, &argv);
     if ( argc < 3 )
@@ -85,37 +83,29 @@ int main( int argc, char ** argv )
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
 
-    //Send width and height of image to the root of each group.
+    //Send image to the root of each group.
     int c;
     if (rankInWorld == 0) {
+      picture = image->p[0];
       for (c = 1; c < r; c++) {
-          MPI_Isend(&image->width[c], 1, MPI_INT, c * (k + 1), 0, MPI_COMM_WORLD, &request);
-          MPI_Isend(&image->height[c], 1, MPI_INT, c * (k + 1), 1, MPI_COMM_WORLD, &request);
-          fprintf(
-            stderr,
-            "Sending Width: %d and height: %d for image %d to process %d. \n ",
-            image->width[c],
-            image->height[c],
-            c,
-            c * (k + 1));
+        sendImageToProcess(
+          image->width[c],
+          image->height[c],
+          image->p[c],
+          c * (k + 1));
       }
       for (c = r; c < numberOfImages; c++) {
         if (c == 0) continue;
-        MPI_Isend(&image->width[c], 1, MPI_INT, c * k + r, 0, MPI_COMM_WORLD, &request);
-        MPI_Isend(&image->height[c], 1, MPI_INT, c * k + r, 1, MPI_COMM_WORLD, &request);
-        fprintf(
-          stderr,
-          "Sending Width: %d and height: %d for image %d to process %d.\n ",
+        sendImageToProcess(
           image->width[c],
           image->height[c],
-          c,
+          image->p[c],
           c * k + r);
       }
     }
-
+    //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
-      MPI_Recv(&width, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
-      MPI_Recv(&height, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+      receiveWidthAndHeightFromProcess(&width, &height, 0);
       fprintf(
         stderr,
         "Process : %d is receiving width %d  and height %d of color %d.\n",
@@ -123,62 +113,12 @@ int main( int argc, char ** argv )
         width,
         height,
         color);
-    }
-
-    //Sending image to the root of each group.
-    int *red, *green, *blue;
-    if (rankInWorld == 0) {
-      picture = image->p[0];
-      for (c = 1; c < r; c++) {
-        int size = image->width[c] * image->height[c];
-        red = malloc(size * sizeof (int));
-        blue = malloc(size * sizeof (int));
-        green = malloc(size * sizeof (int));
-        pixelToArray(image->p[c], red, green, blue, image->width[c] * image->height[c]);
-        MPI_Isend(red, size, MPI_INT, c * (k + 1), 2, MPI_COMM_WORLD, &request);
-        MPI_Isend(blue, size, MPI_INT, c * (k + 1), 3, MPI_COMM_WORLD, &request);
-        MPI_Isend(green, size, MPI_INT, c * (k + 1), 4, MPI_COMM_WORLD, &request);
-      }
-      for (c = r; c < numberOfImages; c++) {
-        if (c == 0) continue;
-        int size = image->width[c] * image->height[c];
-        red = malloc(size * sizeof (int));
-        blue = malloc(size * sizeof (int));
-        green = malloc(size * sizeof (int));
-        int i;
-        for (i = 0; i < size; i++) {
-          red[i] = image->p[c][i].r;
-          blue[i] = image->p[c][i].b;
-          green[i] = image->p[c][i].g;
-        }
-        /*
-        for (i = 0; i < size; i++) {
-         fprintf(stderr, "Sending, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", c, i, red[i],green[i], blue[i]);
-       }*/
-        MPI_Isend(red, size, MPI_INT, c * k + r, 2, MPI_COMM_WORLD, &request);
-        MPI_Isend(blue, size, MPI_INT, c * k + r, 3, MPI_COMM_WORLD, &request);
-        MPI_Isend(green, size, MPI_INT, c * k + r, 4, MPI_COMM_WORLD, &request);
-      }
-    }
-
-    if (rankInGroup == 0 && rankInWorld != 0) {
       int size = width * height;
-      red = malloc(size * sizeof (int));
-      blue = malloc(size * sizeof (int));
-      green = malloc(size * sizeof (int));
-      MPI_Recv(red, size, MPI_INT, 0, 2, MPI_COMM_WORLD, &status);
-      MPI_Recv(blue, size, MPI_INT, 0, 3, MPI_COMM_WORLD, &status);
-      MPI_Recv(green, size, MPI_INT, 0, 4, MPI_COMM_WORLD, &status);
       picture = malloc(size * sizeof(pixel));
-      int i;
-      for (i = 0; i < size; i++) {
-        pixel p = {red[i], green[i], blue[i]};
-        //fprintf(stderr, "Receiving, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", color, i, red[i],green[i], blue[i]);
-        picture[i] = p;
-      }
-    }
+      receiveImageFromProcess(size, picture, 0);
+  }
 
-    /* Applying filters on each image */
+  /* Applying filters on each image */
     if (rankInGroup == 0) {
       /* Convert the pixels into grayscale */
       apply_gray_filter_once(picture, width * height) ;
@@ -188,12 +128,7 @@ int main( int argc, char ** argv )
       apply_sobel_filter_once(picture, width, height) ;
       //Send results back to root.
       if (rankInWorld != 0) {
-        int *grey = malloc(width * height * sizeof (int));
-        int i;
-        for (i = 0; i < width *height; i++) {
-          grey[i] = picture[i].r;
-        }
-        MPI_Isend(grey, width * height, MPI_INT, 0, rankInWorld, MPI_COMM_WORLD, &request);
+        sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
       }
     }
 
@@ -201,27 +136,19 @@ int main( int argc, char ** argv )
       // Get result back from other processes.
       int c;
       for (c = 1; c < r; c++) {
-        int size = image->width[c] * image->height[c];
-        int *grey = malloc(size * sizeof (int));
-        MPI_Recv(grey, size, MPI_INT, c * (k + 1), c * (k + 1), MPI_COMM_WORLD, &status);
-        int i;
-        for (i = 0; i < size; i++) {
-          image->p[c][i].r = grey[i];
-          image->p[c][i].g = grey[i];
-          image->p[c][i].b = grey[i];
-        }
+        receiveGreyImageFromProcessWithTagAndSize(
+          image->p[c],
+          c * (k + 1),
+          c * (k + 1),
+          image->width[c] * image->height[c]);
       }
       for (c = r; c < numberOfImages; c++) {
         if (c == 0) continue;
-        int size = image->width[c] * image->height[c];
-        int *grey = malloc(size * sizeof (int));
-        MPI_Recv(grey, size, MPI_INT, c * k + r, c * k + r, MPI_COMM_WORLD, &status);
-        int i;
-        for (i = 0; i < size; i++) {
-          image->p[c][i].r = grey[i];
-          image->p[c][i].g = grey[i];
-          image->p[c][i].b = grey[i];
-        }
+        receiveGreyImageFromProcessWithTagAndSize(
+          image->p[c],
+          c * k + r,
+          c * k + r,
+          image->width[c] * image->height[c]);
       }
 
       /* EXPORT Timer start */

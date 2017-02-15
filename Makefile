@@ -42,7 +42,7 @@ $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $^
 
 sobelf:$(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -g -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f sobelf $(OBJ)
