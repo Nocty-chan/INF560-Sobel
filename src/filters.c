@@ -3,9 +3,10 @@
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
-void apply_gray_filter_once(pixel *oneImage, int size) {
+pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
   int j;
-  for ( j = 0 ; j < size ; j++ )
+  pixel *gray = malloc((endIndex - beginIndex) * sizeof(pixel));
+  for ( j = beginIndex ; j < endIndex ; j++ )
   {
       int moy ;
 
@@ -14,10 +15,11 @@ void apply_gray_filter_once(pixel *oneImage, int size) {
       if ( moy < 0 ) moy = 0 ;
       if ( moy > 255 ) moy = 255 ;
 
-      oneImage[j].r = moy ;
-      oneImage[j].g = moy ;
-      oneImage[j].b = moy ;
+      gray[j - beginIndex].r = moy ;
+      gray[j - beginIndex].g = moy ;
+      gray[j - beginIndex].b = moy ;
   }
+  return gray;
 }
 
 pixel *applyBlurFilterFromTo(pixel* oneImage, int width, int height, int beginIndex, int endIndex, int blurSize, int threshold) {
@@ -130,61 +132,63 @@ pixel *applyBlurFilterFromTo(pixel* oneImage, int width, int height, int beginIn
   return new;
 }
 
+pixel *applySobelFilterFromTo(pixel *oneImage, int width, int height, int beginIndex, int endIndex) {
+  int j, k ;
+  pixel * sobel ;
+  sobel = (pixel *)malloc((endIndex - beginIndex)* sizeof( pixel ) ) ;
+  for(j=1; j<height-1; j++) {
+    for(k=1; k<width-1; k++) {
+      if (CONV(j, k, width) >= beginIndex && CONV(j, k, width) < endIndex) {
+        int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
+        int pixel_blue_so, pixel_blue_s, pixel_blue_se;
+        int pixel_blue_o , pixel_blue  , pixel_blue_e ;
+
+        float deltaX_blue ;
+        float deltaY_blue ;
+        float val_blue;
+
+        pixel_blue_no = oneImage[CONV(j-1,k-1,width)].b ;
+        pixel_blue_n  = oneImage[CONV(j-1,k  ,width)].b ;
+        pixel_blue_ne = oneImage[CONV(j-1,k+1,width)].b ;
+        pixel_blue_so = oneImage[CONV(j+1,k-1,width)].b ;
+        pixel_blue_s  = oneImage[CONV(j+1,k  ,width)].b ;
+        pixel_blue_se = oneImage[CONV(j+1,k+1,width)].b ;
+        pixel_blue_o  = oneImage[CONV(j  ,k-1,width)].b ;
+        pixel_blue    = oneImage[CONV(j  ,k  ,width)].b ;
+        pixel_blue_e  = oneImage[CONV(j  ,k+1,width)].b ;
+
+        deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o +
+          2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
+
+        deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so -
+          pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
+
+        val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
+        if ( val_blue > 50 ) {
+          sobel[CONV(j  ,k  ,width) - beginIndex].r = 255 ;
+          sobel[CONV(j  ,k  ,width) - beginIndex].g = 255 ;
+          sobel[CONV(j  ,k  ,width) - beginIndex].b = 255 ;
+        } else {
+          sobel[CONV(j  ,k  ,width) - beginIndex].r = 0 ;
+          sobel[CONV(j  ,k  ,width) - beginIndex].g = 0 ;
+          sobel[CONV(j  ,k  ,width) - beginIndex].b = 0 ;
+        }
+      }
+    }
+  }
+  return sobel;
+}
+
+void apply_gray_filter_once(pixel *oneImage, int size) {
+  oneImage = applyGrayFilterFromTo(oneImage, 0, size);
+}
+
 void apply_blur_filter_once(pixel* oneImage, int width, int height, int blurSize, int threshold) {
   oneImage = applyBlurFilterFromTo(oneImage, width, height, 0, width * height, blurSize, threshold);
 }
 
 void apply_sobel_filter_once(pixel *oneImage, int width, int height) {
-  int j, k ;
-  pixel * sobel ;
-  sobel = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
-  for(j=1; j<height-1; j++) {
-    for(k=1; k<width-1; k++) {
-      int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
-      int pixel_blue_so, pixel_blue_s, pixel_blue_se;
-      int pixel_blue_o , pixel_blue  , pixel_blue_e ;
-
-      float deltaX_blue ;
-      float deltaY_blue ;
-      float val_blue;
-
-      pixel_blue_no = oneImage[CONV(j-1,k-1,width)].b ;
-      pixel_blue_n  = oneImage[CONV(j-1,k  ,width)].b ;
-      pixel_blue_ne = oneImage[CONV(j-1,k+1,width)].b ;
-      pixel_blue_so = oneImage[CONV(j+1,k-1,width)].b ;
-      pixel_blue_s  = oneImage[CONV(j+1,k  ,width)].b ;
-      pixel_blue_se = oneImage[CONV(j+1,k+1,width)].b ;
-      pixel_blue_o  = oneImage[CONV(j  ,k-1,width)].b ;
-      pixel_blue    = oneImage[CONV(j  ,k  ,width)].b ;
-      pixel_blue_e  = oneImage[CONV(j  ,k+1,width)].b ;
-
-      deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o +
-        2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
-
-      deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so -
-        pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
-
-      val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
-      if ( val_blue > 50 ) {
-        sobel[CONV(j  ,k  ,width)].r = 255 ;
-        sobel[CONV(j  ,k  ,width)].g = 255 ;
-        sobel[CONV(j  ,k  ,width)].b = 255 ;
-      } else {
-        sobel[CONV(j  ,k  ,width)].r = 0 ;
-        sobel[CONV(j  ,k  ,width)].g = 0 ;
-        sobel[CONV(j  ,k  ,width)].b = 0 ;
-      }
-    }
-  }
-
-  for(j=1; j<height-1; j++) {
-    for(k=1; k<width-1; k++) {
-      oneImage[CONV(j  ,k  ,width)].r = sobel[CONV(j  ,k  ,width)].r ;
-      oneImage[CONV(j  ,k  ,width)].g = sobel[CONV(j  ,k  ,width)].g ;
-      oneImage[CONV(j  ,k  ,width)].b = sobel[CONV(j  ,k  ,width)].b ;
-    }
-  }
-  free (sobel) ;
+  oneImage = applySobelFilterFromTo(oneImage, width, height, 0, width * height);
 }
 
 void apply_gray_filter( animated_gif * image )
