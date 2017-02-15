@@ -122,9 +122,7 @@ int main( int argc, char ** argv )
     /* Dispatch height and width to all processes of the group */
     MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
     MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
-    /*fprintf(stderr, "Process: %d in group %d has width %d and height %d.\n",
-     rankInWorld, color, width, height);
-     */
+
     /* Dispatch image to the group */
     int size = width * height;
     int *red = malloc(size * sizeof (int));
@@ -145,20 +143,47 @@ int main( int argc, char ** argv )
         picture[i] = p;
       }
     }
+    free (red);
+    free (blue);
+    free (green);
 
     // Determine chunksizes to send to each process of a group.
     int chunksize = height / groupSize;
     int remainingChunk = height - groupSize * chunksize;
     //P_0 to P_remainingChunk - 1 have chunksize += 1;
-  /* Applying filters on each image */
-    if (rankInGroup == 0) {
+    /* Applying filters on each image */
+    if (rankInGroup == 1) {
+
       /* Convert the pixels into grayscale */
       apply_gray_filter_once(picture, width * height) ;
       /* Apply blur filter with convergence value */
       apply_blur_filter_once(picture, width, height, 5, 20 ) ;
       /* Apply sobel filter on pixels */
       apply_sobel_filter_once(picture, width, height) ;
+
+   // Send result back to root of group
+    int *grey = malloc(size * sizeof(int));
+
+     int i;
+     for (i = 0; i < size; i++) {
+       grey[i] = picture[i].r;
+     }
+     MPI_Request request;
+     MPI_Isend(grey, size, MPI_INT, 0, 0, imageCommunicator, &request);
+   } else {
+     int *grey = malloc(size * sizeof (int));
+     MPI_Status status;
+     MPI_Recv(grey, size, MPI_INT, 1, 0, imageCommunicator, &status);
+     int i;
+     for (i = 0; i < size; i++) {
+       picture[i].r = grey[i];
+       picture[i].g = grey[i];
+       picture[i].b = grey[i];
+     }
+     free(grey);
+   }
       //Send results back to root.
+    if (rankInGroup == 0) {
       if (rankInWorld != 0) {
         sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
       }
