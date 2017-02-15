@@ -117,6 +117,50 @@ int main( int argc, char ** argv )
         color);
     }
 
+    //Sending image to the root of each group.
+    int *red, *green, *blue;
+    pixel *picture;
+    if (rankInWorld == 0) {
+      picture = image->p[0];
+      for (c = 1; c < r; c++) {
+        int size = image->width[c] * image->height[c];
+        red = malloc(size * sizeof (int));
+        blue = malloc(size * sizeof (int));
+        green = malloc(size * sizeof (int));
+        pixelToArray(image->p[c], red, green, blue, image->width[c] * image->height[c]);
+        MPI_Isend(red, size, MPI_INT, c * (k + 1), 2, MPI_COMM_WORLD, &request);
+        MPI_Isend(blue, size, MPI_INT, c * (k + 1), 3, MPI_COMM_WORLD, &request);
+        MPI_Isend(green, size, MPI_INT, c * (k + 1), 4, MPI_COMM_WORLD, &request);
+      }
+      for (c = r; c < numberOfImages; c++) {
+        if (c == 0) continue;
+        int size = image->width[c] * image->height[c];
+        red = malloc(size * sizeof (int));
+        blue = malloc(size * sizeof (int));
+        green = malloc(size * sizeof (int));
+        pixelToArray(image->p[c], red, green, blue, image->width[c] * image->height[c]);
+        MPI_Isend(red, size, MPI_INT, c * k + r, 2, MPI_COMM_WORLD, &request);
+        MPI_Isend(blue, size, MPI_INT, c * k + r, 3, MPI_COMM_WORLD, &request);
+        MPI_Isend(green, size, MPI_INT, c * k + r, 4, MPI_COMM_WORLD, &request);
+      }
+    }
+
+    if (rankInGroup == 0 && rankInWorld != 0) {
+      int size = width * height;
+      red = malloc(size * sizeof (int));
+      blue = malloc(size * sizeof (int));
+      green = malloc(size * sizeof (int));
+      MPI_Recv(red, size, MPI_INT, 0, 2, MPI_COMM_WORLD, &status);
+      MPI_Recv(blue, size, MPI_INT, 0, 3, MPI_COMM_WORLD, &status);
+      MPI_Recv(green, size, MPI_INT, 0, 4, MPI_COMM_WORLD, &status);
+      picture = malloc(size * sizeof(pixel));
+      int i;
+      for (i = 0; i < size; i++) {
+        pixel p = {red[i], green[i], blue[i]};
+        picture[i] = p;
+      }
+    }
+
     if (false) {
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
