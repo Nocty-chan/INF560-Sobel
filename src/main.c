@@ -52,7 +52,10 @@ int main( int argc, char ** argv )
     //Broadcast number of images to everybody.
     MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
     fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
-
+    if (numberOfImages > totalProcesses) {
+      fprintf(stderr, "Not enough processes.\n");
+      return 1;
+    }
     //Create communicators
     MPI_Comm imageCommunicator;
     int k = totalProcesses / numberOfImages;
