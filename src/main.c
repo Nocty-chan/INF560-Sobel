@@ -16,13 +16,27 @@
 
 int main( int argc, char ** argv )
 {
+    /* I/O variables */
     char * input_filename ;
     char * output_filename ;
+    // Loaded gif.
     animated_gif * image ;
+    int numberOfImages;
+    /* Variables for time measures */
     struct timeval t1, t2;
-    int rankInWorld, totalProcesses, numberOfImages;
     double duration;
+    /* General information for MPI */
+    int rankInWorld, totalProcesses;
+    /* Information for image Communicator - one communicator / images */
+    MPI_Comm imageCommunicator;
+    int color, rankInGroup;
+    /* Information for image processed by communicator */
     int width, height;
+    pixel *picture;
+    /* Variables for communications */
+    MPI_Status status;
+    MPI_Request request;
+
     MPI_Init(&argc, &argv);
     if ( argc < 3 )
     {
@@ -60,25 +74,19 @@ int main( int argc, char ** argv )
       return 1;
     }
     //Create communicators
-    MPI_Comm imageCommunicator;
     int k = totalProcesses / numberOfImages;
     int r = totalProcesses - k * numberOfImages;
-    int color;
     if (rankInWorld <= (r - 1) * (k + 1) + k) {
       color = rankInWorld / (k + 1);
     } else {
       color = (rankInWorld - r) / k;
     }
-
     MPI_Comm_split(MPI_COMM_WORLD, color, rankInWorld, &imageCommunicator);
-    int rankInGroup;
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
 
     //Send width and height of image to the root of each group.
     int c;
-    MPI_Status status;
-    MPI_Request request;
     if (rankInWorld == 0) {
       for (c = 1; c < r; c++) {
           MPI_Isend(&image->width[c], 1, MPI_INT, c * (k + 1), 0, MPI_COMM_WORLD, &request);
@@ -119,7 +127,6 @@ int main( int argc, char ** argv )
 
     //Sending image to the root of each group.
     int *red, *green, *blue;
-    pixel *picture;
     if (rankInWorld == 0) {
       picture = image->p[0];
       for (c = 1; c < r; c++) {
@@ -161,7 +168,7 @@ int main( int argc, char ** argv )
       }
     }
 
-    if (false) {
+    if (rankInWorld == 0) {
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
 
