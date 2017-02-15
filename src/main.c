@@ -145,7 +145,16 @@ int main( int argc, char ** argv )
         red = malloc(size * sizeof (int));
         blue = malloc(size * sizeof (int));
         green = malloc(size * sizeof (int));
-        pixelToArray(image->p[c], red, green, blue, image->width[c] * image->height[c]);
+        int i;
+        for (i = 0; i < size; i++) {
+          red[i] = image->p[c][i].r;
+          blue[i] = image->p[c][i].b;
+          green[i] = image->p[c][i].g;
+        }
+        /*
+        for (i = 0; i < size; i++) {
+         fprintf(stderr, "Sending, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", c, i, red[i],green[i], blue[i]);
+       }*/
         MPI_Isend(red, size, MPI_INT, c * k + r, 2, MPI_COMM_WORLD, &request);
         MPI_Isend(blue, size, MPI_INT, c * k + r, 3, MPI_COMM_WORLD, &request);
         MPI_Isend(green, size, MPI_INT, c * k + r, 4, MPI_COMM_WORLD, &request);
@@ -164,57 +173,67 @@ int main( int argc, char ** argv )
       int i;
       for (i = 0; i < size; i++) {
         pixel p = {red[i], green[i], blue[i]};
+        //fprintf(stderr, "Receiving, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", color, i, red[i],green[i], blue[i]);
         picture[i] = p;
       }
     }
 
-    if (rankInWorld == 0) {
-    /* GRAY_FILTER Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Convert the pixels into grayscale */
-    apply_gray_filter( image ) ;
-
-    /* GRAY_FILTER Timer stop */
-    gettimeofday(&t2, NULL);
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf( "GRAY_FILTER done in %lf s\n", duration ) ;
-
-    /* BLUR_FILTER Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Apply blur filter with convergence value */
-    apply_blur_filter( image, 5, 20 ) ;
-
-    /* BLUR_FILTER Timer stop */
-    gettimeofday(&t2, NULL);
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf( "BLUR_FILTER done in %lf s\n", duration ) ;
-
-    /* SOBEL_FILTER Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Apply sobel filter on pixels */
-    apply_sobel_filter( image ) ;
-
-    /* SOBEL_FILTER Timer stop */
-    gettimeofday(&t2, NULL);
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf( "SOBEL_FILTER done in %lf s\n", duration ) ;
-
-    /* EXPORT Timer start */
-    gettimeofday(&t1, NULL);
-
-    /* Store file from array of pixels to GIF file */
-    if ( !store_pixels( output_filename, image ) ) { return 1 ; }
-
-    /* EXPORT Timer stop */
-    gettimeofday(&t2, NULL);
-
-    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-
-    printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+    /* Applying filters on each image */
+    if (rankInGroup == 0) {
+      /* Convert the pixels into grayscale */
+      apply_gray_filter_once(picture, width * height) ;
+      /* Apply blur filter with convergence value */
+      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
+      /* Apply sobel filter on pixels */
+      apply_sobel_filter_once(picture, width, height) ;
+      //Send results back to root.
+      if (rankInWorld != 0) {
+        int *grey = malloc(width * height * sizeof (int));
+        int i;
+        for (i = 0; i < width *height; i++) {
+          grey[i] = picture[i].r;
+        }
+        MPI_Isend(grey, width * height, MPI_INT, 0, rankInWorld, MPI_COMM_WORLD, &request);
+      }
     }
+
+    if (rankInWorld == 0) {
+      // Get result back from other processes.
+      int c;
+      for (c = 1; c < r; c++) {
+        int size = image->width[c] * image->height[c];
+        int *grey = malloc(size * sizeof (int));
+        MPI_Recv(grey, size, MPI_INT, c * (k + 1), c * (k + 1), MPI_COMM_WORLD, &status);
+        int i;
+        for (i = 0; i < size; i++) {
+          image->p[c][i].r = grey[i];
+          image->p[c][i].g = grey[i];
+          image->p[c][i].b = grey[i];
+        }
+      }
+      for (c = r; c < numberOfImages; c++) {
+        if (c == 0) continue;
+        int size = image->width[c] * image->height[c];
+        int *grey = malloc(size * sizeof (int));
+        MPI_Recv(grey, size, MPI_INT, c * k + r, c * k + r, MPI_COMM_WORLD, &status);
+        int i;
+        for (i = 0; i < size; i++) {
+          image->p[c][i].r = grey[i];
+          image->p[c][i].g = grey[i];
+          image->p[c][i].b = grey[i];
+        }
+      }
+
+      /* EXPORT Timer start */
+      gettimeofday(&t1, NULL);
+      /* Store file from array of pixels to GIF file */
+      if ( !store_pixels( output_filename, image ) ) { return 1 ; }
+      /* EXPORT Timer stop */
+      gettimeofday(&t2, NULL);
+      duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+      printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+    }
+
     MPI_Comm_free(&imageCommunicator);
     MPI_Finalize();
     return 0 ;
