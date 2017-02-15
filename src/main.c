@@ -29,7 +29,7 @@ int main( int argc, char ** argv )
     int rankInWorld, totalProcesses;
     /* Information for image Communicator - one communicator / images */
     MPI_Comm imageCommunicator;
-    int color, rankInGroup;
+    int color, rankInGroup, groupSize;
     /* Information for image processed by communicator */
     int width, height;
     pixel *picture;
@@ -81,6 +81,7 @@ int main( int argc, char ** argv )
     }
     MPI_Comm_split(MPI_COMM_WORLD, color, rankInWorld, &imageCommunicator);
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
+    MPI_Comm_size(imageCommunicator, &groupSize);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
 
     //Send image to the root of each group.
@@ -106,18 +107,49 @@ int main( int argc, char ** argv )
     //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
       receiveWidthAndHeightFromProcess(&width, &height, 0);
-      fprintf(
+      /*fprintf(
         stderr,
         "Process : %d is receiving width %d  and height %d of color %d.\n",
         rankInWorld,
         width,
         height,
-        color);
+        color);*/
       int size = width * height;
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
-  }
+    }
 
+    /* Dispatch height and width to all processes of the group */
+    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
+    MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
+    /*fprintf(stderr, "Process: %d in group %d has width %d and height %d.\n",
+     rankInWorld, color, width, height);
+     */
+    /* Dispatch image to the group */
+    int size = width * height;
+    int *red = malloc(size * sizeof (int));
+    int *blue = malloc(size * sizeof (int));
+    int *green = malloc(size * sizeof (int));
+    if (rankInGroup == 0) {
+      pixelToArray(picture, red, green, blue, size);
+    }
+    MPI_Bcast(red, size, MPI_INT, 0, imageCommunicator);
+    MPI_Bcast(blue, size, MPI_INT, 0, imageCommunicator);
+    MPI_Bcast(green, size, MPI_INT, 0, imageCommunicator);
+    if (rankInGroup > 0) {
+      int i;
+      picture = malloc(size * sizeof(pixel));
+      for (i = 1; i < size; i++) {
+        pixel p = {red[i], green[i], blue[i]};
+        //fprintf(stderr, "Receiving, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", color, i, red[i],green[i], blue[i]);
+        picture[i] = p;
+      }
+    }
+
+    // Determine chunksizes to send to each process of a group.
+    int chunksize = height / groupSize;
+    int remainingChunk = height - groupSize * chunksize;
+    //P_0 to P_remainingChunk - 1 have chunksize += 1;
   /* Applying filters on each image */
     if (rankInGroup == 0) {
       /* Convert the pixels into grayscale */
