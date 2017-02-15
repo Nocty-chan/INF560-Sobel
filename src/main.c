@@ -66,6 +66,7 @@ int main( int argc, char ** argv )
     MPI_Comm_split(MPI_COMM_WORLD, color, rankInWorld, &imageCommunicator);
     fprintf(stderr, "Process  %d has been assigned to group %d. \n",rankInWorld, color);
 
+    if (rankInWorld == 0) {
     /* GRAY_FILTER Timer start */
     gettimeofday(&t1, NULL);
 
@@ -111,6 +112,7 @@ int main( int argc, char ** argv )
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
 
     printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+    }
     MPI_Comm_free(&imageCommunicator);
     MPI_Finalize();
     return 0 ;
