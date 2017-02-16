@@ -138,36 +138,80 @@ int main( int argc, char ** argv )
     }
     broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
 
-    // Determine chunksizes to send to each process of a group.
-    int chunksize = height / groupSize;
-    int remainingChunk = height - groupSize * chunksize;
-    //P_0 to P_remainingChunk - 1 have chunksize += 1;
-    /* Applying filters on each image */
-    if (rankInGroup == 1) {
-      /* Apply sobel filter on pixels */
-      apply_sobel_filter_once(picture, width, height) ;
+    // Determine chunksizes and partially apply Sobel filter
+    int chunksize = size / groupSize;
+    int remainingChunk = size - groupSize * chunksize;
+    pixel *processedChunk;
+    if (rankInGroup < remainingChunk) {
+      processedChunk = malloc((chunksize + 1) * sizeof(pixel));
+      processedChunk = applySobelFilterFromTo(
+        picture,
+        width,
+        height,
+        rankInGroup * (chunksize + 1),
+        (rankInGroup + 1) * (chunksize + 1)
+      );
+    } else {
+      processedChunk = malloc(chunksize * sizeof(pixel));
+      processedChunk = applySobelFilterFromTo(
+        picture,
+        width,
+        height,
+        rankInGroup * chunksize + remainingChunk,
+        (rankInGroup + 1) * chunksize + remainingChunk
+      );
+    }
+    //Convert processedChunk to int array.
+    int *gray;
+    int sizeOfChunk;
+    if (rankInGroup < remainingChunk) {
+      sizeOfChunk = chunksize + 1;
+    } else {
+      sizeOfChunk = chunksize;
+    }
+    gray = malloc(sizeOfChunk * sizeof(int));
+    int i;
+    for (i = 0; i < sizeOfChunk; i++) {
+      gray[i] = processedChunk[i].g;
+      if (gray[i] < 0 || gray[i] > 255) {
+        gray[i] = 0;
+      }
+    }
 
-   // Send result back to root of group
-    int *grey = malloc(size * sizeof(int));
+    //Gather processedChunk to root.
+     int *totalGray = malloc (size * sizeof(int));
+     int *recvCounts = malloc (groupSize * sizeof(int));
+     int *displs = malloc(groupSize * sizeof(int));
+     for (i = 0; i < remainingChunk; i++) {
+       recvCounts[i] = chunksize + 1;
+       displs[i] = (chunksize + 1) * i;
+     }
+     for (i = remainingChunk; i < groupSize; i++) {
+       recvCounts[i] = chunksize;
+       displs[i] = chunksize * i + remainingChunk * (chunksize + 1);
+     }
 
-     int i;
-     for (i = 0; i < size; i++) {
-       grey[i] = picture[i].r;
-     }
-     MPI_Request request;
-     MPI_Isend(grey, size, MPI_INT, 0, 0, imageCommunicator, &request);
-   } else {
-     int *grey = malloc(size * sizeof (int));
-     MPI_Status status;
-     MPI_Recv(grey, size, MPI_INT, 1, 0, imageCommunicator, &status);
-     int i;
-     for (i = 0; i < size; i++) {
-       picture[i].r = grey[i];
-       picture[i].g = grey[i];
-       picture[i].b = grey[i];
-     }
-     free(grey);
-   }
+      MPI_Gatherv(
+        gray,
+        sizeOfChunk,
+        MPI_INT,
+        totalGray,
+        recvCounts,
+        displs,
+        MPI_INT,
+        0,
+        imageCommunicator);
+
+    //Put total gray into picture.
+    if (rankInGroup == 0) {
+      int i;
+      for (i = 0; i < size; i++) {
+        picture[i].r = totalGray[i];
+        picture[i].g = totalGray[i];
+        picture[i].b = totalGray[i];
+      }
+    }
+
       //Send results back to root.
     if (rankInGroup == 0) {
       if (rankInWorld != 0) {
