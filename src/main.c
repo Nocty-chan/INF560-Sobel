@@ -173,9 +173,6 @@ int main( int argc, char ** argv )
     int i;
     for (i = 0; i < sizeOfChunk; i++) {
       gray[i] = processedChunk[i].g;
-      if (gray[i] < 0 || gray[i] > 255) {
-        gray[i] = 0;
-      }
     }
 
     //Gather processedChunk to root.
@@ -206,9 +203,11 @@ int main( int argc, char ** argv )
     if (rankInGroup == 0) {
       int i;
       for (i = 0; i < size; i++) {
-        picture[i].r = totalGray[i];
-        picture[i].g = totalGray[i];
-        picture[i].b = totalGray[i];
+        if (totalGray[i] >= 0 && totalGray[i] <= 255) {
+          picture[i].r = totalGray[i];
+          picture[i].g = totalGray[i];
+          picture[i].b = totalGray[i];
+        }
       }
     }
 
@@ -221,22 +220,7 @@ int main( int argc, char ** argv )
 
     if (rankInWorld == 0) {
       // Get result back from other processes.
-      int c;
-      for (c = 1; c < r; c++) {
-        receiveGreyImageFromProcessWithTagAndSize(
-          image->p[c],
-          c * (k + 1),
-          c * (k + 1),
-          image->width[c] * image->height[c]);
-      }
-      for (c = r; c < numberOfImages; c++) {
-        if (c == 0) continue;
-        receiveGreyImageFromProcessWithTagAndSize(
-          image->p[c],
-          c * k + r,
-          c * k + r,
-          image->width[c] * image->height[c]);
-      }
+      receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
 
       /* EXPORT Timer start */
       gettimeofday(&t1, NULL);

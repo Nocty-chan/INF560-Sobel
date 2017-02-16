@@ -76,6 +76,25 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
   free(grey);
 }
 
+inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r, int k, int numberOfImages) {
+  int c;
+  for (c = 1; c < r; c++) {
+    receiveGreyImageFromProcessWithTagAndSize(
+      image->p[c],
+      c * (k + 1),
+      c * (k + 1),
+      image->width[c] * image->height[c]);
+  }
+
+  for (c = r; c < numberOfImages; c++) {
+    if (c == 0) continue;
+    receiveGreyImageFromProcessWithTagAndSize(
+      image->p[c],
+      c * k + r,
+      c * k + r,
+      image->width[c] * image->height[c]);
+  }
+}
 inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGroup, MPI_Comm imageCommunicator) {
   int *red = malloc(size * sizeof (int));
   int *blue = malloc(size * sizeof (int));
