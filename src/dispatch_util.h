@@ -12,6 +12,17 @@ inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size
   }
 }
 
+inline void greyToPixel(pixel *picture, int *totalGray, int size) {
+  int i;
+  for (i = 0; i < size; i++) {
+    if (totalGray[i] >= 0 && totalGray[i] <= 255) {
+      picture[i].r = totalGray[i];
+      picture[i].g = totalGray[i];
+      picture[i].b = totalGray[i];
+    }
+  }
+}
+
 //Send image information to a given process.
 inline void sendImageToProcess(int width, int height, pixel *image, int dest) {
   MPI_Request request;

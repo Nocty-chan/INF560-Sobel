@@ -107,13 +107,6 @@ int main( int argc, char ** argv )
     //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
       receiveWidthAndHeightFromProcess(&width, &height, 0);
-      /*fprintf(
-        stderr,
-        "Process : %d is receiving width %d  and height %d of color %d.\n",
-        rankInWorld,
-        width,
-        height,
-        color);*/
       int size = width * height;
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
@@ -141,9 +134,14 @@ int main( int argc, char ** argv )
     // Determine chunksizes and partially apply Sobel filter
     int chunksize = size / groupSize;
     int remainingChunk = size - groupSize * chunksize;
-    pixel *processedChunk;
+    int sizeOfChunk;
     if (rankInGroup < remainingChunk) {
-      processedChunk = malloc((chunksize + 1) * sizeof(pixel));
+      sizeOfChunk = chunksize + 1;
+    } else {
+      sizeOfChunk = chunksize;
+    }
+    pixel *processedChunk = malloc(sizeOfChunk * sizeof(pixel));
+    if (rankInGroup < remainingChunk) {
       processedChunk = applySobelFilterFromTo(
         picture,
         width,
@@ -152,7 +150,6 @@ int main( int argc, char ** argv )
         (rankInGroup + 1) * (chunksize + 1)
       );
     } else {
-      processedChunk = malloc(chunksize * sizeof(pixel));
       processedChunk = applySobelFilterFromTo(
         picture,
         width,
@@ -163,12 +160,6 @@ int main( int argc, char ** argv )
     }
     //Convert processedChunk to int array.
     int *gray;
-    int sizeOfChunk;
-    if (rankInGroup < remainingChunk) {
-      sizeOfChunk = chunksize + 1;
-    } else {
-      sizeOfChunk = chunksize;
-    }
     gray = malloc(sizeOfChunk * sizeof(int));
     int i;
     for (i = 0; i < sizeOfChunk; i++) {
@@ -188,7 +179,7 @@ int main( int argc, char ** argv )
        displs[i] = chunksize * i + remainingChunk * (chunksize + 1);
      }
 
-      MPI_Gatherv(
+     MPI_Gatherv(
         gray,
         sizeOfChunk,
         MPI_INT,
@@ -198,18 +189,16 @@ int main( int argc, char ** argv )
         MPI_INT,
         0,
         imageCommunicator);
+    free(displs);
+    free(recvCounts);
+    free(gray);
+    free(processedChunk);
 
     //Put total gray into picture.
     if (rankInGroup == 0) {
-      int i;
-      for (i = 0; i < size; i++) {
-        if (totalGray[i] >= 0 && totalGray[i] <= 255) {
-          picture[i].r = totalGray[i];
-          picture[i].g = totalGray[i];
-          picture[i].b = totalGray[i];
-        }
-      }
+      greyToPixel(picture, totalGray, size);
     }
+    free(totalGray);
 
       //Send results back to root.
     if (rankInGroup == 0) {
