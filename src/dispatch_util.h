@@ -75,3 +75,26 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
   }
   free(grey);
 }
+
+inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGroup, MPI_Comm imageCommunicator) {
+  int *red = malloc(size * sizeof (int));
+  int *blue = malloc(size * sizeof (int));
+  int *green = malloc(size * sizeof (int));
+  if (rankInGroup == 0) {
+    pixelToArray(picture, red, green, blue, size);
+  }
+  MPI_Bcast(red, size, MPI_INT, 0, imageCommunicator);
+  MPI_Bcast(blue, size, MPI_INT, 0, imageCommunicator);
+  MPI_Bcast(green, size, MPI_INT, 0, imageCommunicator);
+  if (rankInGroup > 0) {
+    int i;
+    for (i = 1; i < size; i++) {
+      pixel p = {red[i], green[i], blue[i]};
+      //fprintf(stderr, "Receiving, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", color, i, red[i],green[i], blue[i]);
+      picture[i] = p;
+    }
+  }
+  free (red);
+  free (blue);
+  free (green);
+}

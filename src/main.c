@@ -119,33 +119,24 @@ int main( int argc, char ** argv )
       receiveImageFromProcess(size, picture, 0);
     }
 
+    /* Root of group applies two first filters */
+    if (rankInGroup == 0) {
+      /* Convert the pixels into grayscale */
+      apply_gray_filter_once(picture, width * height) ;
+      /* Apply blur filter with convergence value */
+      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
+    }
+
     /* Dispatch height and width to all processes of the group */
     MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
     MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
 
     /* Dispatch image to the group */
     int size = width * height;
-    int *red = malloc(size * sizeof (int));
-    int *blue = malloc(size * sizeof (int));
-    int *green = malloc(size * sizeof (int));
-    if (rankInGroup == 0) {
-      pixelToArray(picture, red, green, blue, size);
-    }
-    MPI_Bcast(red, size, MPI_INT, 0, imageCommunicator);
-    MPI_Bcast(blue, size, MPI_INT, 0, imageCommunicator);
-    MPI_Bcast(green, size, MPI_INT, 0, imageCommunicator);
     if (rankInGroup > 0) {
-      int i;
       picture = malloc(size * sizeof(pixel));
-      for (i = 1; i < size; i++) {
-        pixel p = {red[i], green[i], blue[i]};
-        //fprintf(stderr, "Receiving, Image: %d , %d, Red: %d, Green: %d, Blue: %d\n", color, i, red[i],green[i], blue[i]);
-        picture[i] = p;
-      }
     }
-    free (red);
-    free (blue);
-    free (green);
+    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
 
     // Determine chunksizes to send to each process of a group.
     int chunksize = height / groupSize;
@@ -153,11 +144,6 @@ int main( int argc, char ** argv )
     //P_0 to P_remainingChunk - 1 have chunksize += 1;
     /* Applying filters on each image */
     if (rankInGroup == 1) {
-
-      /* Convert the pixels into grayscale */
-      apply_gray_filter_once(picture, width * height) ;
-      /* Apply blur filter with convergence value */
-      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
       /* Apply sobel filter on pixels */
       apply_sobel_filter_once(picture, width, height) ;
 
