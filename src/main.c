@@ -56,7 +56,7 @@ int main( int argc, char ** argv )
       /* IMPORT Timer stop */
       gettimeofday(&t2, NULL);
 
-      duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
      printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
               input_filename, image->n_images, duration ) ;
       numberOfImages = image->n_images;
@@ -106,6 +106,7 @@ int main( int argc, char ** argv )
           c * k + r);
       }
     }
+
     //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
       receiveWidthAndHeightFromProcess(&width, &height, 0);
@@ -114,20 +115,101 @@ int main( int argc, char ** argv )
       receiveImageFromProcess(size, picture, 0);
     }
 
+    //***PROCESSING ONE IMAGE ***//
     /* Root of group applies two first filters */
-    if (rankInGroup == 0) {
-      /* Apply blur filter with convergence value */
-      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
-      /* Convert the pixels into grayscale */
-      apply_gray_filter_once(picture, width * height) ;
-    }
-
     /* Dispatch height and width to all processes of the group */
     MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
     MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
 
-    /* Dispatch image to the group */
+    /* Applying Gray Filter */
+    //Dispatch image to all processes.
     int size = width * height;
+    if (rankInGroup > 0) {
+      picture = malloc(size * sizeof(pixel));
+    }
+    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+
+      //Determine chunksizes for Gray Filter
+    int chunksizeForGrayFilter = size / groupSize;
+    int remainingChunkForGrayFilter = size - groupSize * chunksizeForGrayFilter;
+    int sizeOfChunkForGrayFilter;
+    if (rankInGroup < remainingChunkForGrayFilter) {
+      sizeOfChunkForGrayFilter = chunksizeForGrayFilter + 1;
+    } else {
+      sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
+    }
+    //Apply gray filter
+    pixel *chunkForGrayFilter = malloc(sizeOfChunkForGrayFilter * sizeof(pixel));
+
+    if (rankInGroup < remainingChunkForGrayFilter) {
+      chunkForGrayFilter = applyGrayFilterFromTo(
+        picture,
+        rankInGroup * (chunksizeForGrayFilter + 1),
+        (rankInGroup + 1) * (chunksizeForGrayFilter + 1)
+      );
+    } else {
+      chunkForGrayFilter = applyGrayFilterFromTo(
+        picture,
+        rankInGroup * chunksizeForGrayFilter + remainingChunkForGrayFilter,
+        (rankInGroup + 1) * chunksizeForGrayFilter + remainingChunkForGrayFilter
+      );
+    }
+
+    //Convert processedChunk into int array.
+    int *grayArray;
+    grayArray = malloc(sizeOfChunkForGrayFilter * sizeof(int));
+    int i;
+    for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
+      grayArray[i] = chunkForGrayFilter[i].g;
+    }
+
+    //Gather processedChunk to root.
+     int *totalGray = malloc (size * sizeof(int));
+     int *recvCounts = malloc (groupSize * sizeof(int));
+     int *displs = malloc(groupSize * sizeof(int));
+     for (i = 0; i < remainingChunkForGrayFilter; i++) {
+       recvCounts[i] = chunksizeForGrayFilter + 1;
+       displs[i] = (chunksizeForGrayFilter + 1) * i;
+     }
+     for (i = remainingChunkForGrayFilter; i < groupSize; i++) {
+       recvCounts[i] = chunksizeForGrayFilter;
+       displs[i] = chunksizeForGrayFilter * i + remainingChunkForGrayFilter * (chunksizeForGrayFilter + 1);
+     }
+
+     MPI_Gatherv(
+        grayArray,
+        sizeOfChunkForGrayFilter,
+        MPI_INT,
+        totalGray,
+        recvCounts,
+        displs,
+        MPI_INT,
+        0,
+        imageCommunicator);
+    free(displs);
+    free(recvCounts);
+    free(grayArray);
+    free(chunkForGrayFilter);
+
+    //Put back in picture
+
+    //Put total gray into picture.
+    if (rankInGroup == 0) {
+      greyToPixel(picture, totalGray, size);
+    }
+    free(totalGray);
+
+
+    if (rankInGroup == 0) {
+      /* Apply blur filter with convergence value */
+      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
+    }
+
+
+
+    /* Applying sobel filter */
+    /* Dispatch image to the group */
+    size = width * height;
     if (rankInGroup > 0) {
       picture = malloc(size * sizeof(pixel));
     }
@@ -163,15 +245,14 @@ int main( int argc, char ** argv )
     //Convert processedChunk to int array.
     int *gray;
     gray = malloc(sizeOfChunk * sizeof(int));
-    int i;
     for (i = 0; i < sizeOfChunk; i++) {
       gray[i] = processedChunk[i].g;
     }
 
     //Gather processedChunk to root.
-     int *totalGray = malloc (size * sizeof(int));
-     int *recvCounts = malloc (groupSize * sizeof(int));
-     int *displs = malloc(groupSize * sizeof(int));
+     totalGray = malloc (size * sizeof(int));
+     recvCounts = malloc (groupSize * sizeof(int));
+     displs = malloc(groupSize * sizeof(int));
      for (i = 0; i < remainingChunk; i++) {
        recvCounts[i] = chunksize + 1;
        displs[i] = (chunksize + 1) * i;
