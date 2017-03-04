@@ -128,3 +128,30 @@ inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGro
   free (blue);
   free (green);
 }
+
+inline void gatherGrayImageWithSizeAndGroupSizeInCommunicator(int *grayResult, int *graySend, int chunkSize, int actualSize, int groupSize, int remainingSize, MPI_Comm imageCommunicator) {
+  int i;
+  int *recvCounts = malloc (groupSize * sizeof(int));
+  int *displs = malloc(groupSize * sizeof(int));
+  for (i = 0; i < remainingSize; i++) {
+    recvCounts[i] = chunkSize + 1;
+    displs[i] = (chunkSize + 1) * i;
+  }
+  for (i = remainingSize; i < groupSize; i++) {
+    recvCounts[i] = chunkSize;
+    displs[i] = chunkSize * i + remainingSize * (chunkSize + 1);
+  }
+
+  MPI_Gatherv(
+     graySend,
+     actualSize,
+     MPI_INT,
+     grayResult,
+     recvCounts,
+     displs,
+     MPI_INT,
+     0,
+     imageCommunicator);
+ free(displs);
+ free(recvCounts);
+}

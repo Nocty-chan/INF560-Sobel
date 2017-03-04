@@ -138,6 +138,7 @@ int main( int argc, char ** argv )
     } else {
       sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
     }
+
     //Apply gray filter
     pixel *chunkForGrayFilter = malloc(sizeOfChunkForGrayFilter * sizeof(pixel));
 
@@ -165,29 +166,15 @@ int main( int argc, char ** argv )
 
     //Gather processedChunk to root.
      int *totalGray = malloc (size * sizeof(int));
-     int *recvCounts = malloc (groupSize * sizeof(int));
-     int *displs = malloc(groupSize * sizeof(int));
-     for (i = 0; i < remainingChunkForGrayFilter; i++) {
-       recvCounts[i] = chunksizeForGrayFilter + 1;
-       displs[i] = (chunksizeForGrayFilter + 1) * i;
-     }
-     for (i = remainingChunkForGrayFilter; i < groupSize; i++) {
-       recvCounts[i] = chunksizeForGrayFilter;
-       displs[i] = chunksizeForGrayFilter * i + remainingChunkForGrayFilter * (chunksizeForGrayFilter + 1);
-     }
+     gatherGrayImageWithSizeAndGroupSizeInCommunicator(
+       totalGray,
+       grayArray,
+       chunksizeForGrayFilter,
+       sizeOfChunkForGrayFilter,
+       groupSize,
+       remainingChunkForGrayFilter,
+       imageCommunicator);
 
-     MPI_Gatherv(
-        grayArray,
-        sizeOfChunkForGrayFilter,
-        MPI_INT,
-        totalGray,
-        recvCounts,
-        displs,
-        MPI_INT,
-        0,
-        imageCommunicator);
-    free(displs);
-    free(recvCounts);
     free(grayArray);
     free(chunkForGrayFilter);
 
@@ -251,8 +238,8 @@ int main( int argc, char ** argv )
 
     //Gather processedChunk to root.
      totalGray = malloc (size * sizeof(int));
-     recvCounts = malloc (groupSize * sizeof(int));
-     displs = malloc(groupSize * sizeof(int));
+     int *recvCounts = malloc (groupSize * sizeof(int));
+     int *displs = malloc(groupSize * sizeof(int));
      for (i = 0; i < remainingChunk; i++) {
        recvCounts[i] = chunksize + 1;
        displs[i] = (chunksize + 1) * i;
