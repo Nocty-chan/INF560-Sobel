@@ -68,7 +68,9 @@ int main( int argc, char ** argv )
     MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
     //fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
     if (numberOfImages > totalProcesses) {
-      fprintf(stderr, "Not enough processes.\n");
+       if (rankInWorld == 0) {
+         fprintf(stderr, "Not enough processes.\n");
+       }
       return 1;
     }
     //Create communicators
@@ -114,10 +116,10 @@ int main( int argc, char ** argv )
 
     /* Root of group applies two first filters */
     if (rankInGroup == 0) {
-      /* Convert the pixels into grayscale */
-      apply_gray_filter_once(picture, width * height) ;
       /* Apply blur filter with convergence value */
       apply_blur_filter_once(picture, width, height, 5, 20 ) ;
+      /* Convert the pixels into grayscale */
+      apply_gray_filter_once(picture, width * height) ;
     }
 
     /* Dispatch height and width to all processes of the group */
