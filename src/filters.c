@@ -9,7 +9,6 @@ pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
   for ( j = beginIndex ; j < endIndex ; j++ )
   {
       int moy ;
-
       // moy = p[i][j].r/4 + ( p[i][j].g * 3/4 ) ;
       moy = (oneImage[j].r + oneImage[j].g + oneImage[j].b)/3 ;
       if ( moy < 0 ) moy = 0 ;
@@ -133,46 +132,46 @@ pixel *applyBlurFilterFromTo(pixel* oneImage, int width, int height, int beginIn
 }
 
 pixel *applySobelFilterFromTo(pixel *oneImage, int width, int height, int beginIndex, int endIndex) {
-  int j, k ;
+  int i, j, k ;
   pixel * sobel ;
   sobel = (pixel *)malloc((endIndex - beginIndex)* sizeof( pixel ) ) ;
-  for(j=1; j<height-1; j++) {
-    for(k=1; k<width-1; k++) {
-      if (CONV(j, k, width) >= beginIndex && CONV(j, k, width) < endIndex) {
-        int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
-        int pixel_blue_so, pixel_blue_s, pixel_blue_se;
-        int pixel_blue_o , pixel_blue  , pixel_blue_e ;
+  for (i = beginIndex; i < endIndex; i++) {
+    j = i / width;
+    k = i % width;
+    if (k >= 1 && k <  width - 1 && j >= 1 && j < height -1) {
+      int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
+      int pixel_blue_so, pixel_blue_s, pixel_blue_se;
+      int pixel_blue_o , pixel_blue  , pixel_blue_e ;
 
-        float deltaX_blue ;
-        float deltaY_blue ;
-        float val_blue;
+      float deltaX_blue ;
+      float deltaY_blue ;
+      float val_blue;
 
-        pixel_blue_no = oneImage[CONV(j-1,k-1,width)].b ;
-        pixel_blue_n  = oneImage[CONV(j-1,k  ,width)].b ;
-        pixel_blue_ne = oneImage[CONV(j-1,k+1,width)].b ;
-        pixel_blue_so = oneImage[CONV(j+1,k-1,width)].b ;
-        pixel_blue_s  = oneImage[CONV(j+1,k  ,width)].b ;
-        pixel_blue_se = oneImage[CONV(j+1,k+1,width)].b ;
-        pixel_blue_o  = oneImage[CONV(j  ,k-1,width)].b ;
-        pixel_blue    = oneImage[CONV(j  ,k  ,width)].b ;
-        pixel_blue_e  = oneImage[CONV(j  ,k+1,width)].b ;
+      pixel_blue_no = oneImage[CONV(j-1,k-1,width)].b ;
+      pixel_blue_n  = oneImage[CONV(j-1,k  ,width)].b ;
+      pixel_blue_ne = oneImage[CONV(j-1,k+1,width)].b ;
+      pixel_blue_so = oneImage[CONV(j+1,k-1,width)].b ;
+      pixel_blue_s  = oneImage[CONV(j+1,k  ,width)].b ;
+      pixel_blue_se = oneImage[CONV(j+1,k+1,width)].b ;
+      pixel_blue_o  = oneImage[CONV(j  ,k-1,width)].b ;
+      pixel_blue    = oneImage[CONV(j  ,k  ,width)].b ;
+      pixel_blue_e  = oneImage[CONV(j  ,k+1,width)].b ;
 
-        deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o +
-          2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
+      deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o +
+        2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
 
-        deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so -
-          pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
+      deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so -
+        pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
 
-        val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
-        if ( val_blue > 50 ) {
-          sobel[CONV(j  ,k  ,width) - beginIndex].r = 255 ;
-          sobel[CONV(j  ,k  ,width) - beginIndex].g = 255 ;
-          sobel[CONV(j  ,k  ,width) - beginIndex].b = 255 ;
-        } else {
-          sobel[CONV(j  ,k  ,width) - beginIndex].r = 0 ;
-          sobel[CONV(j  ,k  ,width) - beginIndex].g = 0 ;
-          sobel[CONV(j  ,k  ,width) - beginIndex].b = 0 ;
-        }
+      val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
+      if ( val_blue > 50 ) {
+        sobel[CONV(j  ,k  ,width) - beginIndex].r = 255 ;
+        sobel[CONV(j  ,k  ,width) - beginIndex].g = 255 ;
+        sobel[CONV(j  ,k  ,width) - beginIndex].b = 255 ;
+      } else {
+        sobel[CONV(j  ,k  ,width) - beginIndex].r = 0 ;
+        sobel[CONV(j  ,k  ,width) - beginIndex].g = 0 ;
+        sobel[CONV(j  ,k  ,width) - beginIndex].b = 0 ;
       }
     }
   }
