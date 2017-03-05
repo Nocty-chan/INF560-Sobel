@@ -4,6 +4,50 @@
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
+void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator) {
+  int groupSize, rankInGroup;
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+  MPI_Comm_size(imageCommunicator, &groupSize);
+  //Determine chunksizes for Gray Filter
+  int chunksizeForGrayFilter = size / groupSize;
+  int remainingChunkForGrayFilter = size - groupSize * chunksizeForGrayFilter;
+  int sizeOfChunkForGrayFilter;
+  if (rankInGroup < remainingChunkForGrayFilter) {
+    sizeOfChunkForGrayFilter = chunksizeForGrayFilter + 1;
+  } else {
+    sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
+  }
+  /*fprintf(stderr, "Chunksize %d, remaining %d\n", chunksizeForGrayFilter, remainingChunkForGrayFilter);
+  fprintf(stderr, "On process %d of group %d of size %d, sizeOfChunkForGrayFilter is %d out of %d.\n", rankInGroup, color, groupSize, sizeOfChunkForGrayFilter, size);*/
+  //Apply gray filter
+  pixel *grayChunk = applyGrayFilterOnOneProcess(picture, size, imageCommunicator);
+//  fprintf(stderr, "Applied gray filter on process %d of group %d\n", rankInGroup, color);
+  //Convert processedChunk into int array.
+  int *grayArray = (int *)malloc(sizeOfChunkForGrayFilter * sizeof(int));
+  int i;
+  for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
+    grayArray[i] = grayChunk[i].g;
+  }
+  //fprintf(stderr, "Copied into array of int on process %d of group %d\n", rankInGroup, color);
+
+  //Gather processedChunk to root.
+   int *totalGray = (int *)malloc (size * sizeof(int));
+   gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
+     totalGray,
+     grayArray,
+     chunksizeForGrayFilter,
+     remainingChunkForGrayFilter,
+     imageCommunicator);
+  //fprintf(stderr, "Gathered array of int on process %d of group %d\n", rankInGroup, color);
+  //Put total gray into picture.
+  if (rankInGroup == 0) {
+    greyToPixel(picture, totalGray, size);
+  }
+
+  free(grayArray);
+  free(totalGray);
+}
+
 pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommunicator) {
   int rankInGroup, groupSize;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);

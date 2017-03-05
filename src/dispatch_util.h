@@ -159,7 +159,7 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
 inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r, int k, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
-    fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
+    //fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
     receiveGreyImageFromProcessWithTagAndSize(
       image->p[c],
       c * (k + 1),
@@ -170,7 +170,7 @@ inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r,
 
   for (c = r; c < numberOfImages; c++) {
     if (c == 0) continue;
-    fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
+    //fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
     receiveGreyImageFromProcessWithTagAndSize(
       image->p[c],
       c * k + r,
