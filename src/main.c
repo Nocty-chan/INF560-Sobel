@@ -64,18 +64,18 @@ int main( int argc, char ** argv )
       height = image->height[0];
       /* IMPORT Timer start */
       gettimeofday(&t1, NULL);
-
-      apply_gray_filter(image);
-      apply_blur_filter(image, 5, 20);
-      apply_sobel_filter(image);
     }
-/*
-    //Broadcast number of images, width and height to everybody.
+
+    //Broadcast number of images to everybody.
     MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    //fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
+
+    //fprintf(stderr, "Process %d knows that there are %d images. \n", rankInWorld, numberOfImages);
     if (numberOfImages > totalProcesses) {
        if (rankInWorld == 0) {
-         fprintf(stderr, "Not enough processes.\n");
+         fprintf(stderr, "Not enough processes, treating each image sequentially.\n");
+         apply_gray_filter(image);
+         apply_blur_filter(image, 5, 20);
+         apply_sobel_filter(image);
        }
       return 1;
     }
@@ -91,7 +91,6 @@ int main( int argc, char ** argv )
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
     MPI_Comm_size(imageCommunicator, &groupSize);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
-
     //Send image to the root of each group.
     int c;
     if (rankInWorld == 0) {
@@ -120,8 +119,13 @@ int main( int argc, char ** argv )
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
     }
-*/
-    //***PROCESSING ONE IMAGE ***//
+    /*if (rankInGroup == 0) {
+      apply_gray_filter_once(picture, width * height);
+      apply_blur_filter_once(picture, width, height, 5, 20);
+      apply_sobel_filter_once(picture, width, height);
+    }*/
+/*
+    //***PROCESSING ONE IMAGE
     /* Root of group applies two first filters */
     /* Dispatch height and width to all processes of the group */
 /*    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
@@ -215,16 +219,34 @@ int main( int argc, char ** argv )
       greyToPixel(picture, totalGray, size);
     }
     free(totalGray);
-
+*/
       //Send results back to root.
     if (rankInGroup == 0) {
       if (rankInWorld != 0) {
-        sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
+        sendImageToProcess(width, height, picture, 0);
+        //sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
       }
     }
-*/
+
     if (rankInWorld == 0) {
       // Get result back from other processes.
+      int i;
+      for (i = 0; i < size; i++) {
+        image->p[0][i].r = picture[i].r;
+        image->p[0][i].g = picture[i].g;
+        image->p[0][i].b = picture[i].b;
+      }
+      int c, widthRec, heightRec;
+      for (c = 1; c < r; c++) {
+        receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * (k + 1));
+        receiveImageFromProcess(widthRec * heightRec, image->p[c], c * (k + 1));
+      }
+      for (c = r; c < numberOfImages; c++) {
+        if (c == 0) continue;
+        receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * k + r);
+        receiveImageFromProcess(widthRec * heightRec, image->p[c], c * k + r);
+      }
+
       //receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
       /* FILTERS Timer stops */
       gettimeofday(&t2, NULL);
