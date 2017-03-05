@@ -185,24 +185,7 @@ int main( int argc, char ** argv )
     } else {
       sizeOfChunk = chunksize;
     }
-    pixel *processedChunk = malloc(sizeOfChunk * sizeof(pixel));
-    if (rankInGroup < remainingChunk) {
-      processedChunk = applySobelFilterFromTo(
-        picture,
-        width,
-        height,
-        rankInGroup * (chunksize + 1),
-        (rankInGroup + 1) * (chunksize + 1)
-      );
-    } else {
-      processedChunk = applySobelFilterFromTo(
-        picture,
-        width,
-        height,
-        rankInGroup * chunksize + remainingChunk,
-        (rankInGroup + 1) * chunksize + remainingChunk
-      );
-    }
+    pixel *processedChunk = applySobelFilterOnOneProcess(picture, width, height, imageCommunicator);
     //Convert processedChunk to int array.
     int *gray;
     gray = malloc(sizeOfChunk * sizeof(int));

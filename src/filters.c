@@ -31,6 +31,38 @@ pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommu
   }
 }
 
+pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_Comm imageCommunicator) {
+  int rankInGroup, groupSize,size;
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+  MPI_Comm_size(imageCommunicator, &groupSize);
+  size = width * height;
+  int chunksize = size / groupSize;
+  int remainingChunk = size - groupSize * chunksize;
+  int sizeOfChunk;
+  if (rankInGroup < remainingChunk) {
+    sizeOfChunk = chunksize + 1;
+  } else {
+    sizeOfChunk = chunksize;
+  }
+  if (rankInGroup < remainingChunk) {
+    return applySobelFilterFromTo(
+      picture,
+      width,
+      height,
+      rankInGroup * (chunksize + 1),
+      (rankInGroup + 1) * (chunksize + 1)
+    );
+  } else {
+    return applySobelFilterFromTo(
+      picture,
+      width,
+      height,
+      rankInGroup * chunksize + remainingChunk,
+      (rankInGroup + 1) * chunksize + remainingChunk
+    );
+  }
+}
+
 pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
   int j;
   pixel *gray = malloc((endIndex - beginIndex) * sizeof(pixel));
