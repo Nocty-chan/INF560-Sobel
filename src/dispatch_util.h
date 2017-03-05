@@ -13,6 +13,15 @@
  int size (input): size of image.
 */
 
+inline void copyImageIntoImage(pixel *srcImage, pixel *dstImage, int size) {
+  int i;
+  for (i = 0; i < size; i++) {
+    dstImage[i].r = srcImage[i].r;
+    dstImage[i].g = srcImage[i].g;
+    dstImage[i].b = srcImage[i].b;
+  }
+}
+
 inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size) {
   int j;
   for (j = 0; j < size; j++) {

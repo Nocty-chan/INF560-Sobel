@@ -31,7 +31,7 @@ int main( int argc, char ** argv )
     MPI_Comm imageCommunicator;
     int color, rankInGroup, groupSize;
     /* Information for image processed by communicator */
-    int width, height;
+    int width, height, size;
     pixel *picture;
 
 
@@ -94,7 +94,9 @@ int main( int argc, char ** argv )
     //Send image to the root of each group.
     int c;
     if (rankInWorld == 0) {
-      picture = image->p[0];
+      size = image->width[0] * image->height[0];
+      picture = (pixel *)malloc(size * sizeof(pixel));
+      copyImageIntoImage(image->p[0], picture, size);
       for (c = 1; c < r; c++) {
         sendImageToProcess(
           image->width[c],
@@ -115,7 +117,7 @@ int main( int argc, char ** argv )
     //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
       receiveWidthAndHeightFromProcess(&width, &height, 0);
-      int size = width * height;
+      size = width * height;
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
     }
@@ -230,12 +232,7 @@ int main( int argc, char ** argv )
 
     if (rankInWorld == 0) {
       // Get result back from other processes.
-      int i;
-      for (i = 0; i < size; i++) {
-        image->p[0][i].r = picture[i].r;
-        image->p[0][i].g = picture[i].g;
-        image->p[0][i].b = picture[i].b;
-      }
+      copyImageIntoImage(picture, image->p[0], size);
       int c, widthRec, heightRec;
       for (c = 1; c < r; c++) {
         receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * (k + 1));
