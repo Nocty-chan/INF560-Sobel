@@ -3,7 +3,6 @@
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
-
 pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommunicator) {
   int rankInGroup, groupSize;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
@@ -237,7 +236,7 @@ pixel *applySobelFilterFromTo(pixel *oneImage, int width, int height, int beginI
   }
   return sobel;
 }
-
+/*
 void apply_gray_filter_once(pixel *oneImage, int size) {
   oneImage = applyGrayFilterFromTo(oneImage, 0, size);
 }
@@ -249,7 +248,7 @@ void apply_blur_filter_once(pixel* oneImage, int width, int height, int blurSize
 void apply_sobel_filter_once(pixel *oneImage, int width, int height) {
   oneImage = applySobelFilterFromTo(oneImage, width, height, 0, width * height);
 }
-/*
+
 void apply_gray_filter( animated_gif * image )
 {
     int i;
@@ -281,8 +280,21 @@ void apply_sobel_filter( animated_gif * image ) {
 }
 */
 
-void
-apply_gray_filter( animated_gif * image )
+void apply_gray_filter_once(pixel *image, int size) {
+  int j;
+  for (j = 0; j < size; j++) {
+    int moy;
+    moy = (image[j].r + image[j].g + image[j].b)/3 ;
+    if ( moy < 0 ) moy = 0 ;
+    if ( moy > 255 ) moy = 255 ;
+
+    image[j].r = moy ;
+    image[j].g = moy ;
+    image[j].b = moy ;
+  }
+}
+
+void apply_gray_filter( animated_gif * image )
 {
     int i, j ;
     pixel ** p ;
@@ -291,48 +303,14 @@ apply_gray_filter( animated_gif * image )
 
     for ( i = 0 ; i < image->n_images ; i++ )
     {
-        for ( j = 0 ; j < image->width[i] * image->height[i] ; j++ )
-        {
-            int moy ;
-
-            // moy = p[i][j].r/4 + ( p[i][j].g * 3/4 ) ;
-            moy = (p[i][j].r + p[i][j].g + p[i][j].b)/3 ;
-            if ( moy < 0 ) moy = 0 ;
-            if ( moy > 255 ) moy = 255 ;
-
-            p[i][j].r = moy ;
-            p[i][j].g = moy ;
-            p[i][j].b = moy ;
-        }
+      apply_gray_filter_once(image->p[i], image->width[i] * image->height[i]);
     }
 }
 
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
-void apply_gray_line( animated_gif * image )
-{
-    int i, j, k ;
-    pixel ** p ;
-
-    p = image->p ;
-
-    for ( i = 0 ; i < image->n_images ; i++ )
-    {
-        for ( j = 0 ; j < 10 ; j++ )
-        {
-            for ( k = image->width[i]/2 ; k < image->width[i] ; k++ )
-            {
-            p[i][CONV(j,k,image->width[i])].r = 0 ;
-            p[i][CONV(j,k,image->width[i])].g = 0 ;
-            p[i][CONV(j,k,image->width[i])].b = 0 ;
-            }
-        }
-    }
-}
-
-void
-apply_blur_filter( animated_gif * image, int size, int threshold )
+void apply_blur_filter( animated_gif * image, int size, int threshold )
 {
     int i, j, k ;
     int width, height ;
