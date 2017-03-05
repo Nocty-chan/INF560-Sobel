@@ -2,6 +2,8 @@
 #include <unistd.h>
 #include <stdio.h>
 
+/* ALL METHODS FOR COMMUNICATING WITH OTHER PROCESSES */
+
 // Fill in R,G, B components arrays from pixel image.
 /* Arguments:
  pixel *image (input): image to be decomposed.
@@ -201,21 +203,25 @@ inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGro
   int *grayResult (output): significant at root, result grey image.
   int *graySend (input): small part of the gray image to be gathered at root.
   int chunkSize (input): size of the small image part.
-  int actualSize (input): actual size of the small image part (chunkSize or chunkSize + 1)
-  int groupSize (input): size of the communicator
   int remainingSize (input): number of processes which hold a part with a larger size.
   MPI_Comm immageCommunicator (input): communicator
 */
 
-inline void gatherGrayImageWithSizeAndGroupSizeInCommunicator(
+inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     int *grayResult,
     int *graySend,
     int chunkSize,
-    int actualSize,
-    int groupSize,
     int remainingSize,
     MPI_Comm imageCommunicator) {
-  int i;
+
+  int i, groupSize, rankInGroup, actualSize;
+  MPI_Comm_size(imageCommunicator, &groupSize);
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+  if (rankInGroup < remainingSize) {
+    actualSize = chunkSize + 1;
+  } else {
+    actualSize = chunkSize;
+  }
   int *recvCounts = malloc (groupSize * sizeof(int));
   int *displs = malloc(groupSize * sizeof(int));
   for (i = 0; i < remainingSize; i++) {

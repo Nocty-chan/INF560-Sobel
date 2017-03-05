@@ -3,6 +3,34 @@
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
+
+pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommunicator) {
+  int rankInGroup, groupSize;
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+  MPI_Comm_size(imageCommunicator, &groupSize);
+  int chunksizeForGrayFilter = size / groupSize;
+  int remainingChunkForGrayFilter = size - groupSize * chunksizeForGrayFilter;
+  int sizeOfChunkForGrayFilter;
+  if (rankInGroup < remainingChunkForGrayFilter) {
+    sizeOfChunkForGrayFilter = chunksizeForGrayFilter + 1;
+  } else {
+    sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
+  }
+  if (rankInGroup < remainingChunkForGrayFilter) {
+      return applyGrayFilterFromTo(
+      picture,
+      rankInGroup * (chunksizeForGrayFilter + 1),
+      (rankInGroup + 1) * (chunksizeForGrayFilter + 1)
+    );
+  } else {
+      return applyGrayFilterFromTo(
+      picture,
+      rankInGroup * chunksizeForGrayFilter + remainingChunkForGrayFilter,
+      (rankInGroup + 1) * chunksizeForGrayFilter + remainingChunkForGrayFilter
+    );
+  }
+}
+
 pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
   int j;
   pixel *gray = malloc((endIndex - beginIndex) * sizeof(pixel));

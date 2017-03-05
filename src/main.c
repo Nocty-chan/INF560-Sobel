@@ -140,42 +140,26 @@ int main( int argc, char ** argv )
     }
 
     //Apply gray filter
-    pixel *chunkForGrayFilter = malloc(sizeOfChunkForGrayFilter * sizeof(pixel));
-
-    if (rankInGroup < remainingChunkForGrayFilter) {
-      chunkForGrayFilter = applyGrayFilterFromTo(
-        picture,
-        rankInGroup * (chunksizeForGrayFilter + 1),
-        (rankInGroup + 1) * (chunksizeForGrayFilter + 1)
-      );
-    } else {
-      chunkForGrayFilter = applyGrayFilterFromTo(
-        picture,
-        rankInGroup * chunksizeForGrayFilter + remainingChunkForGrayFilter,
-        (rankInGroup + 1) * chunksizeForGrayFilter + remainingChunkForGrayFilter
-      );
-    }
+    pixel *grayChunk = applyGrayFilterOnOneProcess(picture, size, imageCommunicator);
 
     //Convert processedChunk into int array.
     int *grayArray;
     grayArray = malloc(sizeOfChunkForGrayFilter * sizeof(int));
     int i;
     for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
-      grayArray[i] = chunkForGrayFilter[i].g;
+      grayArray[i] = grayChunk[i].g;
     }
 
     //Gather processedChunk to root.
      int *totalGray = malloc (size * sizeof(int));
-     gatherGrayImageWithSizeAndGroupSizeInCommunicator(
+     gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
        totalGray,
        grayArray,
        chunksizeForGrayFilter,
-       sizeOfChunkForGrayFilter,
-       groupSize,
        remainingChunkForGrayFilter,
        imageCommunicator);
     free(grayArray);
-    free(chunkForGrayFilter);
+    free(grayChunk);
 
     //Put total gray into picture.
     if (rankInGroup == 0) {
@@ -228,12 +212,10 @@ int main( int argc, char ** argv )
 
     //Gather processedChunk to root.
      totalGray = malloc (size * sizeof(int));
-     gatherGrayImageWithSizeAndGroupSizeInCommunicator(
+     gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
        totalGray,
        gray,
        chunksize,
-       sizeOfChunk,
-       groupSize,
        remainingChunk,
        imageCommunicator);
     free(gray);
