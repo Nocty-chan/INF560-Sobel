@@ -174,11 +174,8 @@ int main( int argc, char ** argv )
        groupSize,
        remainingChunkForGrayFilter,
        imageCommunicator);
-
     free(grayArray);
     free(chunkForGrayFilter);
-
-    //Put back in picture
 
     //Put total gray into picture.
     if (rankInGroup == 0) {
@@ -186,20 +183,13 @@ int main( int argc, char ** argv )
     }
     free(totalGray);
 
-
     if (rankInGroup == 0) {
       /* Apply blur filter with convergence value */
       apply_blur_filter_once(picture, width, height, 5, 20 ) ;
     }
 
-
-
     /* Applying sobel filter */
     /* Dispatch image to the group */
-    size = width * height;
-    if (rankInGroup > 0) {
-      picture = malloc(size * sizeof(pixel));
-    }
     broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
 
     // Determine chunksizes and partially apply Sobel filter
@@ -238,29 +228,14 @@ int main( int argc, char ** argv )
 
     //Gather processedChunk to root.
      totalGray = malloc (size * sizeof(int));
-     int *recvCounts = malloc (groupSize * sizeof(int));
-     int *displs = malloc(groupSize * sizeof(int));
-     for (i = 0; i < remainingChunk; i++) {
-       recvCounts[i] = chunksize + 1;
-       displs[i] = (chunksize + 1) * i;
-     }
-     for (i = remainingChunk; i < groupSize; i++) {
-       recvCounts[i] = chunksize;
-       displs[i] = chunksize * i + remainingChunk * (chunksize + 1);
-     }
-
-     MPI_Gatherv(
-        gray,
-        sizeOfChunk,
-        MPI_INT,
-        totalGray,
-        recvCounts,
-        displs,
-        MPI_INT,
-        0,
-        imageCommunicator);
-    free(displs);
-    free(recvCounts);
+     gatherGrayImageWithSizeAndGroupSizeInCommunicator(
+       totalGray,
+       gray,
+       chunksize,
+       sizeOfChunk,
+       groupSize,
+       remainingChunk,
+       imageCommunicator);
     free(gray);
     free(processedChunk);
 

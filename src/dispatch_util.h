@@ -3,6 +3,14 @@
 #include <stdio.h>
 
 // Fill in R,G, B components arrays from pixel image.
+/* Arguments:
+ pixel *image (input): image to be decomposed.
+ int *red (output): red component of image.
+ int *green (output): green component of image.
+ int *blue (output): blue component of image.
+ int size (input): size of image.
+*/
+
 inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size) {
   int j;
   for (j = 0; j < size; j++) {
@@ -12,6 +20,12 @@ inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size
   }
 }
 
+//Fill in picture from grey array.
+/* Arguments:
+ pixel *picture (output): output image.
+ int *totalGray (input): grey image.
+ int size (input): size of image
+ */
 inline void greyToPixel(pixel *picture, int *totalGray, int size) {
   int i;
   for (i = 0; i < size; i++) {
@@ -24,6 +38,12 @@ inline void greyToPixel(pixel *picture, int *totalGray, int size) {
 }
 
 //Send image information to a given process.
+/* Arguments:
+int width (input): width of image.
+int height(input): height of image.
+pixel *image (input): image to be sent.
+int dest (input): ID of destination process.
+*/
 inline void sendImageToProcess(int width, int height, pixel *image, int dest) {
   MPI_Request request;
   int size = width * height;
@@ -38,6 +58,14 @@ inline void sendImageToProcess(int width, int height, pixel *image, int dest) {
   MPI_Isend(green, width * height, MPI_INT, dest, 4, MPI_COMM_WORLD, &request);
 }
 
+//Send grey Image to a process knowing the size.
+/* Arguments:
+pixel *image (input): grey image to be sent.
+int dest (input): ID of destination process.
+int tag (input): tag of communication.
+int size (input): size of image.
+*/
+
 inline void sendGreyImageToProcessWithTagAndSize(pixel *image, int dest, int tag, int size) {
   MPI_Request request;
   int *grey = malloc(size * sizeof(int));
@@ -48,12 +76,26 @@ inline void sendGreyImageToProcessWithTagAndSize(pixel *image, int dest, int tag
   MPI_Isend(grey, size, MPI_INT, dest, tag, MPI_COMM_WORLD, &request);
 }
 
-//Receives image from root process.
+//Receives width and height from source process.
+/* Arguments:
+  int *width (output): received width.
+  int *height (output): received height.
+  int src (input): ID of source process.
+*/
 inline void receiveWidthAndHeightFromProcess(int *width, int *height, int src) {
   MPI_Status status;
   MPI_Recv(width, 1, MPI_INT, src, 0, MPI_COMM_WORLD, &status);
   MPI_Recv(height, 1, MPI_INT, src, 1, MPI_COMM_WORLD, &status);
 }
+
+//Receive image of a certain size from source process.
+/*
+* Arguments:
+  int size: size of image (input)
+  pixel *picture (output): received image
+  int src (input): ID of the source process
+*/
+
 inline void receiveImageFromProcess(int size, pixel *picture, int src) {
   MPI_Status status;
   int *red, *blue, *green;
@@ -74,6 +116,14 @@ inline void receiveImageFromProcess(int size, pixel *picture, int src) {
   free(green);
 }
 
+/* Receives a grey image from source process
+* Arguments:
+* pixel *image(output): received image
+* int src (input): ID of source process
+* int tag (input): tag of the communication
+* int size (input): size of image
+*/
+
 inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int tag, int size) {
   MPI_Status status;
   int *grey = malloc(size * sizeof (int));
@@ -86,6 +136,14 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
   }
   free(grey);
 }
+
+/* Receives grey images of a gif from processes
+* arguments:
+* animated_gif *image (output): received images gathered in a gif.
+* int r (input): number of processes that have size k + 1;
+* int k (input): number of processes that process one image
+* int numberOfImages (input): number of images that need to be gathered
+*/
 
 inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r, int k, int numberOfImages) {
   int c;
@@ -106,6 +164,15 @@ inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r,
       image->width[c] * image->height[c]);
   }
 }
+
+/* Broadcasts an image within a communicator
+* Arguments:
+pixel *picture (input/output): if root, contains the image to be broadcasted, if not root, received image.
+int size: size of image
+int rankInGroup: rank of the calling process in the communicator
+MPI_Comm imageCommunicator: communicator in which image has to be broadcasted
+*/
+
 inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGroup, MPI_Comm imageCommunicator) {
   int *red = malloc(size * sizeof (int));
   int *blue = malloc(size * sizeof (int));
@@ -129,7 +196,25 @@ inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGro
   free (green);
 }
 
-inline void gatherGrayImageWithSizeAndGroupSizeInCommunicator(int *grayResult, int *graySend, int chunkSize, int actualSize, int groupSize, int remainingSize, MPI_Comm imageCommunicator) {
+/* Gathers small parts of a grey image into an entire grey image at root of the communicator
+* Arguments:
+  int *grayResult (output): significant at root, result grey image.
+  int *graySend (input): small part of the gray image to be gathered at root.
+  int chunkSize (input): size of the small image part.
+  int actualSize (input): actual size of the small image part (chunkSize or chunkSize + 1)
+  int groupSize (input): size of the communicator
+  int remainingSize (input): number of processes which hold a part with a larger size.
+  MPI_Comm immageCommunicator (input): communicator
+*/
+
+inline void gatherGrayImageWithSizeAndGroupSizeInCommunicator(
+    int *grayResult,
+    int *graySend,
+    int chunkSize,
+    int actualSize,
+    int groupSize,
+    int remainingSize,
+    MPI_Comm imageCommunicator) {
   int i;
   int *recvCounts = malloc (groupSize * sizeof(int));
   int *displs = malloc(groupSize * sizeof(int));
