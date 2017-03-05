@@ -135,7 +135,7 @@ int main( int argc, char ** argv )
     // Processing each image
     if (rankInGroup == 0) {
       apply_gray_filter_once(picture, size);
-      //apply_blur_filter_once(picture, width, height, 5, 20);
+      apply_blur_filter_once(picture, height, width, 5, 20);
       apply_sobel_filter_once(picture, width, height);
       fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
     }
