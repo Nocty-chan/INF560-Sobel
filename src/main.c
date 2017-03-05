@@ -62,6 +62,8 @@ int main( int argc, char ** argv )
       numberOfImages = image->n_images;
       width = image->width[0];
       height = image->height[0];
+      /* IMPORT Timer start */
+      gettimeofday(&t1, NULL);
     }
 
     //Broadcast number of images, width and height to everybody.
@@ -220,7 +222,10 @@ int main( int argc, char ** argv )
     if (rankInWorld == 0) {
       // Get result back from other processes.
       receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
-
+      /* FILTERS Timer stops */
+      gettimeofday(&t2, NULL);
+      duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+      printf( "Filtering done in %lf s \n", duration) ;
       /* EXPORT Timer start */
       gettimeofday(&t1, NULL);
       /* Store file from array of pixels to GIF file */
