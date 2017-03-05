@@ -110,6 +110,7 @@ int main( int argc, char ** argv )
       picture = (pixel *)malloc(size * sizeof(pixel));
       copyImageIntoImage(image->p[0], picture, size);
       for (c = 1; c < r; c++) {
+        fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
         sendImageToProcess(
           image->width[c],
           image->height[c],
@@ -118,6 +119,7 @@ int main( int argc, char ** argv )
       }
       for (c = r; c < numberOfImages; c++) {
         if (c == 0) continue;
+        fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
         sendImageToProcess(
           image->width[c],
           image->height[c],
@@ -129,6 +131,7 @@ int main( int argc, char ** argv )
     if (rankInGroup == 0 && rankInWorld != 0) {
       receiveWidthAndHeightFromProcess(&width, &height, 0);
       size = width * height;
+    //  fprintf(stderr, "Receiving image %d of size %d.\n", color, size);
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
     }
@@ -136,9 +139,10 @@ int main( int argc, char ** argv )
 
     //***PROCESSING ONE IMAGE
     // Dispatch height and width to all processes of the group
-    MPI_Bcast(&width, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&height, 1, MPI_INT, 0, MPI_COMM_WORLD );
+    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
+    MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
     size = width * height;
+    //fprintf(stderr, "Broadcasting image %d of size %d.\n", color, size);
     //Applying Gray Filter
     //Dispatch image to all processes.
     if (rankInGroup > 0) {
@@ -190,52 +194,38 @@ int main( int argc, char ** argv )
        chunksizeForGrayFilter,
        remainingChunkForGrayFilter,
        imageCommunicator);
-
-      free(grayArray);
-      free(grayChunk);
     //fprintf(stderr, "Gathered array of int on process %d of group %d\n", rankInGroup, color);
     //Put total gray into picture.
     if (rankInGroup == 0) {
       greyToPixel(picture, totalGray, size);
     }
-    free(totalGray);
 
     if (rankInGroup == 0) {
       //apply_gray_filter_once(picture, size);
       apply_blur_filter_once(picture, height, width, 5, 20);
       apply_sobel_filter_once(picture, width, height);
-      fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
+      //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
     }
 
       //Send results back to root.
     if (rankInGroup == 0) {
       if (rankInWorld != 0) {
-        sendImageToProcess(width, height, picture, 0);
-        //sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
+        //fprintf(stderr, "Sending picture %d of size %d\n",color, size);
+        sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
       }
     }
 
     if (rankInWorld == 0) {
       // Get result back from other processes.
       copyImageIntoImage(picture, image->p[0], size);
-      int c, widthRec, heightRec;
-      for (c = 1; c < r; c++) {
-        receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * (k + 1));
-        receiveImageFromProcess(widthRec * heightRec, image->p[c], c * (k + 1));
-      }
-      for (c = r; c < numberOfImages; c++) {
-        if (c == 0) continue;
-        receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * k + r);
-        receiveImageFromProcess(widthRec * heightRec, image->p[c], c * k + r);
-      }
-
-      //receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
+      receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
       /* FILTERS Timer stops */
       gettimeofday(&t2, NULL);
       duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
       printf( "Filtering done in %lf s \n", duration) ;
       /* EXPORT Timer start */
       gettimeofday(&t1, NULL);
+      fprintf(stderr, "Attempt at storing pixels.\n");
       /* Store file from array of pixels to GIF file */
       if ( !store_pixels( output_filename, image ) ) { return 1 ; }
       /* EXPORT Timer stop */
