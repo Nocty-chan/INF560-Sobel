@@ -102,9 +102,16 @@ int main( int argc, char ** argv )
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
     MPI_Comm_size(imageCommunicator, &groupSize);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
+
     //Send image to the root of each group.
     int c;
     if (rankInWorld == 0) {
+      apply_gray_filter(image);
+      apply_blur_filter(image, 5, 20);
+      apply_sobel_filter(image);
+
+      width = image->width[0];
+      height = image->height[0];
       size = image->width[0] * image->height[0];
       picture = (pixel *)malloc(size * sizeof(pixel));
       copyImageIntoImage(image->p[0], picture, size);
@@ -132,107 +139,8 @@ int main( int argc, char ** argv )
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
     }
-    /*if (rankInGroup == 0) {
-      apply_gray_filter_once(picture, width * height);
-      apply_blur_filter_once(picture, width, height, 5, 20);
-      apply_sobel_filter_once(picture, width, height);
-    }*/
-/*
-    //***PROCESSING ONE IMAGE
-    /* Root of group applies two first filters */
-    /* Dispatch height and width to all processes of the group */
-/*    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
-    MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
-*/
-    /* Applying Gray Filter */
-    //Dispatch image to all processes.
-/*    int size = width * height;
-    if (rankInGroup > 0) {
-      picture = malloc(size * sizeof(pixel));
-    }
-    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+    // Processing each image
 
-      //Determine chunksizes for Gray Filter
-    int chunksizeForGrayFilter = size / groupSize;
-    int remainingChunkForGrayFilter = size - groupSize * chunksizeForGrayFilter;
-    int sizeOfChunkForGrayFilter;
-    if (rankInGroup < remainingChunkForGrayFilter) {
-      sizeOfChunkForGrayFilter = chunksizeForGrayFilter + 1;
-    } else {
-      sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
-    }
-
-    //Apply gray filter
-    pixel *grayChunk = applyGrayFilterOnOneProcess(picture, size, imageCommunicator);
-
-    //Convert processedChunk into int array.
-    int *grayArray;
-    grayArray = malloc(sizeOfChunkForGrayFilter * sizeof(int));
-    int i;
-    for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
-      grayArray[i] = grayChunk[i].g;
-    }
-
-    //Gather processedChunk to root.
-     int *totalGray = malloc (size * sizeof(int));
-     gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
-       totalGray,
-       grayArray,
-       chunksizeForGrayFilter,
-       remainingChunkForGrayFilter,
-       imageCommunicator);
-    free(grayArray);
-    free(grayChunk);
-
-    //Put total gray into picture.
-    if (rankInGroup == 0) {
-      greyToPixel(picture, totalGray, size);
-    }
-    free(totalGray);
-
-    if (rankInGroup == 0) {*/
-      /* Apply blur filter with convergence value */
-/*      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
-    }
-
-    /* Applying sobel filter */
-    /* Dispatch image to the group */
-/*    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
-
-    // Determine chunksizes and partially apply Sobel filter
-    int chunksize = size / groupSize;
-    int remainingChunk = size - groupSize * chunksize;
-    int sizeOfChunk;
-    if (rankInGroup < remainingChunk) {
-      sizeOfChunk = chunksize + 1;
-    } else {
-      sizeOfChunk = chunksize;
-    }
-    pixel *processedChunk = applySobelFilterOnOneProcess(picture, width, height, imageCommunicator);
-    //Convert processedChunk to int array.
-    int *gray;
-    gray = malloc(sizeOfChunk * sizeof(int));
-    for (i = 0; i < sizeOfChunk; i++) {
-      gray[i] = processedChunk[i].g;
-    }
-
-    //Gather processedChunk to root.
-     totalGray = malloc (size * sizeof(int));
-     gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
-       totalGray,
-       gray,
-       chunksize,
-       remainingChunk,
-       imageCommunicator);
-    free(gray);
-    free(processedChunk);
-
-    //Put total gray into picture.
-    if (rankInGroup == 0) {
-      greyToPixel(picture, totalGray, size);
-    }
-    free(totalGray);
-*/
       //Send results back to root.
     if (rankInGroup == 0) {
       if (rankInWorld != 0) {
@@ -254,10 +162,6 @@ int main( int argc, char ** argv )
         receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * k + r);
         receiveImageFromProcess(widthRec * heightRec, image->p[c], c * k + r);
       }
-
-      apply_gray_filter(image);
-      apply_blur_filter(image, 5, 20);
-      apply_sobel_filter(image);
 
       //receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
       /* FILTERS Timer stops */

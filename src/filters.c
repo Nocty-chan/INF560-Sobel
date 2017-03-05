@@ -1,4 +1,5 @@
 #include "filters.h"
+#include "dispatch_util.h"
 #include <math.h>
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
@@ -132,7 +133,7 @@ pixel *applySobelFilterFromTo(pixel *image, int width, int height, int beginInde
 }
 
 void apply_gray_filter_once(pixel *image, int size) {
- image = applyGrayFilterFromTo(image, 0, size);
+ copyImageIntoImage(applyGrayFilterFromTo(image, 0, size), image, size);
 }
 
 void apply_blur_filter_once(pixel *image, int height, int width , int size, int threshold) {
