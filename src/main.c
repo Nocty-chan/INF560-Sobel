@@ -71,7 +71,10 @@ int main( int argc, char ** argv )
     if (numberOfImages > totalProcesses) {
        if (rankInWorld == 0) {
          fprintf(stderr, "Not enough processes, treating each image sequentially.\n");
-         apply_gray_filter(image);
+         int n;
+         for (n = 0; n < numberOfImages; n++) {
+           applyGrayFilterDistributedInCommunicator(image->p[n], image->width[n] * image->height[n], MPI_COMM_WORLD);
+         }
          apply_blur_filter(image, 5, 20);
          apply_sobel_filter(image);
          gettimeofday(&t2, NULL);
@@ -149,7 +152,7 @@ int main( int argc, char ** argv )
       picture = (pixel *)malloc(size * sizeof(pixel));
     }
     broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
-    
+
     applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
 
     if (rankInGroup == 0) {
