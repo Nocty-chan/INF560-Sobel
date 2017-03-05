@@ -33,8 +33,6 @@ int main( int argc, char ** argv )
     /* Information for image processed by communicator */
     int width, height, size;
     pixel *picture;
-
-
     MPI_Init(&argc, &argv);
     if ( argc < 3 )
     {
@@ -90,6 +88,7 @@ int main( int argc, char ** argv )
        }
       return 1;
     }
+
     //Create communicators
     int k = totalProcesses / numberOfImages;
     int r = totalProcesses - k * numberOfImages;
@@ -102,14 +101,9 @@ int main( int argc, char ** argv )
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
     MPI_Comm_size(imageCommunicator, &groupSize);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
-
     //Send image to the root of each group.
     int c;
     if (rankInWorld == 0) {
-      apply_gray_filter(image);
-      apply_blur_filter(image, 5, 20);
-      apply_sobel_filter(image);
-
       width = image->width[0];
       height = image->height[0];
       size = image->width[0] * image->height[0];
@@ -131,7 +125,6 @@ int main( int argc, char ** argv )
           c * k + r);
       }
     }
-
     //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
       receiveWidthAndHeightFromProcess(&width, &height, 0);
@@ -140,6 +133,12 @@ int main( int argc, char ** argv )
       receiveImageFromProcess(size, picture, 0);
     }
     // Processing each image
+    if (rankInGroup == 0) {
+      apply_gray_filter_once(picture, size);
+      //apply_blur_filter_once(picture, width, height, 5, 20);
+      apply_sobel_filter_once(picture, width, height);
+      fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
+    }
 
       //Send results back to root.
     if (rankInGroup == 0) {
