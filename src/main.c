@@ -64,8 +64,12 @@ int main( int argc, char ** argv )
       height = image->height[0];
       /* IMPORT Timer start */
       gettimeofday(&t1, NULL);
-    }
 
+      apply_gray_filter(image);
+      apply_blur_filter(image, 5, 20);
+      apply_sobel_filter(image);
+    }
+/*
     //Broadcast number of images, width and height to everybody.
     MPI_Bcast(&numberOfImages, 1, MPI_INT, 0, MPI_COMM_WORLD);
     //fprintf(stderr, "Process n %d knows that there are %d images. \n", rankInWorld, numberOfImages);
@@ -116,16 +120,16 @@ int main( int argc, char ** argv )
       picture = malloc(size * sizeof(pixel));
       receiveImageFromProcess(size, picture, 0);
     }
-
+*/
     //***PROCESSING ONE IMAGE ***//
     /* Root of group applies two first filters */
     /* Dispatch height and width to all processes of the group */
-    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
+/*    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
     MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
-
+*/
     /* Applying Gray Filter */
     //Dispatch image to all processes.
-    int size = width * height;
+/*    int size = width * height;
     if (rankInGroup > 0) {
       picture = malloc(size * sizeof(pixel));
     }
@@ -169,14 +173,14 @@ int main( int argc, char ** argv )
     }
     free(totalGray);
 
-    if (rankInGroup == 0) {
+    if (rankInGroup == 0) {*/
       /* Apply blur filter with convergence value */
-      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
+/*      apply_blur_filter_once(picture, width, height, 5, 20 ) ;
     }
 
     /* Applying sobel filter */
     /* Dispatch image to the group */
-    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+/*    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
 
     // Determine chunksizes and partially apply Sobel filter
     int chunksize = size / groupSize;
@@ -218,10 +222,10 @@ int main( int argc, char ** argv )
         sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
       }
     }
-
+*/
     if (rankInWorld == 0) {
       // Get result back from other processes.
-      receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
+      //receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
       /* FILTERS Timer stops */
       gettimeofday(&t2, NULL);
       duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
@@ -236,7 +240,7 @@ int main( int argc, char ** argv )
       printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
     }
 
-    MPI_Comm_free(&imageCommunicator);
+  //  MPI_Comm_free(&imageCommunicator);
     MPI_Finalize();
     return 0 ;
 }
