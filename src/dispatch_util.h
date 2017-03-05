@@ -40,11 +40,11 @@ inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size
 inline void greyToPixel(pixel *picture, int *totalGray, int size) {
   int i;
   for (i = 0; i < size; i++) {
-    if (totalGray[i] >= 0 && totalGray[i] <= 255) {
+    //if (totalGray[i] >= 0 && totalGray[i] <= 255) {
       picture[i].r = totalGray[i];
       picture[i].g = totalGray[i];
       picture[i].b = totalGray[i];
-    }
+  //  }
   }
 }
 
@@ -233,13 +233,17 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
   }
   int *recvCounts = malloc (groupSize * sizeof(int));
   int *displs = malloc(groupSize * sizeof(int));
-  for (i = 0; i < remainingSize; i++) {
-    recvCounts[i] = chunkSize + 1;
-    displs[i] = (chunkSize + 1) * i;
-  }
-  for (i = remainingSize; i < groupSize; i++) {
-    recvCounts[i] = chunkSize;
-    displs[i] = chunkSize * i + remainingSize * (chunkSize + 1);
+  if (rankInGroup == 0) {
+    for (i = 0; i < remainingSize; i++) {
+      recvCounts[i] = chunkSize + 1;
+      displs[i] = (chunkSize + 1) * i;
+      //fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n",i, recvCounts[i], displs[i]);
+    }
+    for (i = remainingSize; i < groupSize; i++) {
+      recvCounts[i] = chunkSize;
+      displs[i] = chunkSize * (i - remainingSize) + remainingSize * (chunkSize + 1);
+    //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
+    }
   }
 
   MPI_Gatherv(

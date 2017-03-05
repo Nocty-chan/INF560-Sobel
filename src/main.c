@@ -133,8 +133,75 @@ int main( int argc, char ** argv )
       receiveImageFromProcess(size, picture, 0);
     }
     // Processing each image
+
+    //***PROCESSING ONE IMAGE
+    // Dispatch height and width to all processes of the group
+    MPI_Bcast(&width, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&height, 1, MPI_INT, 0, MPI_COMM_WORLD );
+    size = width * height;
+    //Applying Gray Filter
+    //Dispatch image to all processes.
+    if (rankInGroup > 0) {
+      picture = (pixel *)malloc(size * sizeof(pixel));
+    }
+    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+
+    //Determine chunksizes for Gray Filter
+    int chunksizeForGrayFilter = size / groupSize;
+    int remainingChunkForGrayFilter = size - groupSize * chunksizeForGrayFilter;
+    int sizeOfChunkForGrayFilter;
+    if (rankInGroup < remainingChunkForGrayFilter) {
+      sizeOfChunkForGrayFilter = chunksizeForGrayFilter + 1;
+    } else {
+      sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
+    }
+    /*fprintf(stderr, "Chunksize %d, remaining %d\n", chunksizeForGrayFilter, remainingChunkForGrayFilter);
+    fprintf(stderr, "On process %d of group %d of size %d, sizeOfChunkForGrayFilter is %d out of %d.\n", rankInGroup, color, groupSize, sizeOfChunkForGrayFilter, size);*/
+    //Apply gray filter
+    //pixel *grayChunk = applyGrayFilterOnOneProcess(picture, size, imageCommunicator);
+    pixel *grayChunk = (pixel *)malloc(sizeOfChunkForGrayFilter * sizeof(pixel));
+    if (rankInGroup < remainingChunkForGrayFilter) {
+        grayChunk = applyGrayFilterFromTo(
+        picture,
+        rankInGroup * (chunksizeForGrayFilter + 1),
+        (rankInGroup + 1) * (chunksizeForGrayFilter + 1)
+      );
+    } else {
+        grayChunk = applyGrayFilterFromTo(
+        picture,
+        rankInGroup * chunksizeForGrayFilter + remainingChunkForGrayFilter,
+        (rankInGroup + 1) * chunksizeForGrayFilter + remainingChunkForGrayFilter
+      );
+    }
+  //  fprintf(stderr, "Applied gray filter on process %d of group %d\n", rankInGroup, color);
+    //Convert processedChunk into int array.
+    int *grayArray = (int *)malloc(sizeOfChunkForGrayFilter * sizeof(int));
+    int i;
+    for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
+      grayArray[i] = grayChunk[i].g;
+    }
+    //fprintf(stderr, "Copied into array of int on process %d of group %d\n", rankInGroup, color);
+
+    //Gather processedChunk to root.
+     int *totalGray = (int *)malloc (size * sizeof(int));
+     gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
+       totalGray,
+       grayArray,
+       chunksizeForGrayFilter,
+       remainingChunkForGrayFilter,
+       imageCommunicator);
+
+      free(grayArray);
+      free(grayChunk);
+    //fprintf(stderr, "Gathered array of int on process %d of group %d\n", rankInGroup, color);
+    //Put total gray into picture.
     if (rankInGroup == 0) {
-      apply_gray_filter_once(picture, size);
+      greyToPixel(picture, totalGray, size);
+    }
+    free(totalGray);
+
+    if (rankInGroup == 0) {
+      //apply_gray_filter_once(picture, size);
       apply_blur_filter_once(picture, height, width, 5, 20);
       apply_sobel_filter_once(picture, width, height);
       fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
@@ -177,7 +244,7 @@ int main( int argc, char ** argv )
       printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
     }
 
-  //  MPI_Comm_free(&imageCommunicator);
+    MPI_Comm_free(&imageCommunicator);
     MPI_Finalize();
     return 0 ;
 }
