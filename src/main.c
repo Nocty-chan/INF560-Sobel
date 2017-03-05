@@ -76,6 +76,17 @@ int main( int argc, char ** argv )
          apply_gray_filter(image);
          apply_blur_filter(image, 5, 20);
          apply_sobel_filter(image);
+         gettimeofday(&t2, NULL);
+         duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+         printf( "Filtering done in %lf s \n", duration) ;
+         /* EXPORT Timer start */
+         gettimeofday(&t1, NULL);
+         /* Store file from array of pixels to GIF file */
+         if ( !store_pixels( output_filename, image ) ) { return 1 ; }
+         /* EXPORT Timer stop */
+         gettimeofday(&t2, NULL);
+         duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+         printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
        }
       return 1;
     }
@@ -243,6 +254,10 @@ int main( int argc, char ** argv )
         receiveWidthAndHeightFromProcess(&widthRec, &heightRec, c * k + r);
         receiveImageFromProcess(widthRec * heightRec, image->p[c], c * k + r);
       }
+
+      apply_gray_filter(image);
+      apply_blur_filter(image, 5, 20);
+      apply_sobel_filter(image);
 
       //receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
       /* FILTERS Timer stops */
