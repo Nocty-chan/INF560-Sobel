@@ -4,6 +4,8 @@
 
 /* ALL METHODS FOR COMMUNICATING WITH OTHER PROCESSES */
 
+
+
 // Fill in R,G, B components arrays from pixel image.
 /* Arguments:
  pixel *image (input): image to be decomposed.
@@ -261,4 +263,34 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      imageCommunicator);
  free(displs);
  free(recvCounts);
+}
+
+inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int k, int r, int numberOfImages) {
+  int c;
+  for (c = 1; c < r; c++) {
+    //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
+    sendImageToProcess(
+      image->width[c],
+      image->height[c],
+      image->p[c],
+      c * (k + 1));
+  }
+  for (c = r; c < numberOfImages; c++) {
+    if (c == 0) continue;
+    //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
+    sendImageToProcess(
+      image->width[c],
+      image->height[c],
+      image->p[c],
+      c * k + r);
+  }
+}
+
+inline pixel *receiveImageFromRoot(int *width, int *height, int *size) {
+  receiveWidthAndHeightFromProcess(width, height, 0);
+  *size = (*width) * (*height);
+//  fprintf(stderr, "Receiving image %d of size %d.\n", color, size);
+  pixel *picture = (pixel *)malloc((*size) * sizeof(pixel));
+  receiveImageFromProcess(*size, picture, 0);
+  return picture;
 }

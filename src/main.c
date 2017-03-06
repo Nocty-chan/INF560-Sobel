@@ -77,35 +77,12 @@ int main( int argc, char ** argv )
          if (rankInWorld == 0) {
            width = image->width[n];
            height = image->height[n];
-         }
-         MPI_Bcast(&width, 1, MPI_INT, 0, MPI_COMM_WORLD);
-         MPI_Bcast(&height, 1, MPI_INT, 0, MPI_COMM_WORLD);
-         size = width * height;
-         //fprintf(stderr, "Broadcasting image %d of size %d.\n", color, size);
-         //Applying Gray Filter
-         //Dispatch image to all processes.
-        picture = (pixel *)malloc(size * sizeof(pixel));
-         if (rankInWorld == 0) {
+           size = width * height;
+           picture = (pixel *)malloc(size * sizeof(pixel));
            copyImageIntoImage(image->p[n], picture, size);
          }
-         broadcastImageToCommunicator(picture, size, rankInWorld, MPI_COMM_WORLD);
-         applyGrayFilterDistributedInCommunicator(
-           picture,
-           width * height,
-           MPI_COMM_WORLD);
 
-         if (rankInWorld == 0) {
-           fprintf(stderr, "Gray Filter successfully applied for image %d\n", n);
-           apply_blur_filter_once(picture, width, height, 5, 20);
-           fprintf(stderr, "Blur Filter successfully applied for image %d\n", n);
-         }
-         broadcastImageToCommunicator(picture, size, rankInWorld, MPI_COMM_WORLD);
-         applySobelFilterDistributedInCommunicator(
-           picture,
-           n,
-           width,
-           height,
-           MPI_COMM_WORLD);
+         applyFiltersDistributedInCommunicator(picture, n, width, height, MPI_COMM_WORLD);
          if (rankInWorld == 0) {
            fprintf(stderr, "Sobel filter successfully Applied for image %d\n", n);
            copyImageIntoImage(picture, image->p[n], size);
@@ -150,35 +127,15 @@ int main( int argc, char ** argv )
       size = image->width[0] * image->height[0];
       picture = (pixel *)malloc(size * sizeof(pixel));
       copyImageIntoImage(image->p[0], picture, size);
-      for (c = 1; c < r; c++) {
-        //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
-        sendImageToProcess(
-          image->width[c],
-          image->height[c],
-          image->p[c],
-          c * (k + 1));
-      }
-      for (c = r; c < numberOfImages; c++) {
-        if (c == 0) continue;
-        //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
-        sendImageToProcess(
-          image->width[c],
-          image->height[c],
-          image->p[c],
-          c * k + r);
-      }
+      sendImagesToRootsOfImageCommunicator(image, k, r, numberOfImages);
     }
     //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
-      receiveWidthAndHeightFromProcess(&width, &height, 0);
-      size = width * height;
-    //  fprintf(stderr, "Receiving image %d of size %d.\n", color, size);
-      picture = malloc(size * sizeof(pixel));
-      receiveImageFromProcess(size, picture, 0);
+      picture = receiveImageFromRoot(&width, &height, &size);
     }
     // Processing each image
     applyFiltersDistributedInCommunicator(picture, color, width, height, imageCommunicator);
-    
+
       //Send results back to root.
     if (rankInGroup == 0) {
       if (rankInWorld != 0) {
