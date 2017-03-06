@@ -25,3 +25,6 @@ pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_C
 /* Applies filter on one image using processes of a communicator */
 void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator);
 void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator);
+
+/* Applies filters on one image using processes of a communicator */
+void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator);

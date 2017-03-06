@@ -177,34 +177,8 @@ int main( int argc, char ** argv )
       receiveImageFromProcess(size, picture, 0);
     }
     // Processing each image
-
-    //***PROCESSING ONE IMAGE
-    // Dispatch height and width to all processes of the group
-    MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
-    MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
-    size = width * height;
-    //fprintf(stderr, "Broadcasting image %d of size %d.\n", color, size);
-    //Applying Gray Filter
-    //Dispatch image to all processes.
-    if (rankInGroup > 0) {
-      picture = (pixel *)malloc(size * sizeof(pixel));
-    }
-    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
-
-    applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
-    if (rankInGroup == 0) {
-      fprintf(stderr, "Gray Filter successfully applied.\n");
-      apply_blur_filter_once(picture, width, height, 5, 20);
-      //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
-    }
-    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
-    applySobelFilterDistributedInCommunicator(
-      picture,
-      color,
-      width,
-      height,
-      imageCommunicator);
-
+    applyFiltersDistributedInCommunicator(picture, color, width, height, imageCommunicator);
+    
       //Send results back to root.
     if (rankInGroup == 0) {
       if (rankInWorld != 0) {

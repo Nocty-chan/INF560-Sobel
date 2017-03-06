@@ -4,6 +4,35 @@
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
+void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator) {
+  int size, rankInGroup;
+  MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
+  MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
+  size = width * height;
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+
+  //Dispatch image to all processes.
+  if (rankInGroup > 0) {
+    picture = (pixel *)malloc(size * sizeof(pixel));
+  }
+  broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+  //Applying Gray Filter
+  applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
+  if (rankInGroup == 0) {
+    fprintf(stderr, "Gray Filter successfully applied.\n");
+    apply_blur_filter_once(picture, width, height, 5, 20);
+    //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
+  }
+  //Apply Sobel filter.
+  broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+  applySobelFilterDistributedInCommunicator(
+    picture,
+    color,
+    width,
+    height,
+    imageCommunicator);
+}
+
 void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator) {
   int groupSize, rankInGroup, size;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
