@@ -113,7 +113,7 @@ int main( int argc, char ** argv )
       picture = (pixel *)malloc(size * sizeof(pixel));
       copyImageIntoImage(image->p[0], picture, size);
       for (c = 1; c < r; c++) {
-        fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
+        //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
         sendImageToProcess(
           image->width[c],
           image->height[c],
@@ -122,7 +122,7 @@ int main( int argc, char ** argv )
       }
       for (c = r; c < numberOfImages; c++) {
         if (c == 0) continue;
-        fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
+        //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
         sendImageToProcess(
           image->width[c],
           image->height[c],
@@ -154,13 +154,15 @@ int main( int argc, char ** argv )
     broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
 
     applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
-
     if (rankInGroup == 0) {
+      fprintf(stderr, "Gray Filter successfully applied.\n");
       //apply_gray_filter_once(picture, size);
       apply_blur_filter_once(picture, height, width, 5, 20);
-      apply_sobel_filter_once(picture, width, height);
+      //apply_sobel_filter_once(picture, width, height);
       //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
     }
+
+    applySobelFilterDistributedInCommunicator(picture, color, width, height, imageCommunicator);
 
       //Send results back to root.
     if (rankInGroup == 0) {

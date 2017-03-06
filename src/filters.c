@@ -4,6 +4,47 @@
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 
+void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator) {
+  int groupSize, rankInGroup, size;
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+  MPI_Comm_size(imageCommunicator, &groupSize);
+  size = width * height;
+  //Determine chunksizes for Sobel Filter
+  int chunksize = size / groupSize;
+  int remainingChunk = size - groupSize * chunksize;
+  int sizeOfChunk;
+  if (rankInGroup < remainingChunk) {
+    sizeOfChunk = chunksize + 1;
+  } else {
+    sizeOfChunk= chunksize;
+  }
+  //Apply sobel filter
+  int i;
+  pixel *sobelChunk = applySobelFilterOnOneProcess(picture, width, height, imageCommunicator);
+
+  //Convert processedChunk into int array.
+  int *grayArray = (int *)malloc(sizeOfChunk * sizeof(int));
+
+  for (i = 0; i < sizeOfChunk; i++) {
+    grayArray[i] = sobelChunk[i].g;
+  }
+
+  //Gather processedChunk to root.
+   int *totalGray = (int *)malloc (size * sizeof(int));
+   gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
+     totalGray,
+     grayArray,
+     chunksize,
+     remainingChunk,
+     imageCommunicator);
+  //Put total gray into picture.
+  if (rankInGroup == 0) {
+    greyToPixel(picture, totalGray, size);
+  }
+
+  free(grayArray);
+  free(totalGray);
+}
 void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator) {
   int groupSize, rankInGroup;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
@@ -76,7 +117,7 @@ pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommu
 }
 
 pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_Comm imageCommunicator) {
-  int rankInGroup, groupSize,size;
+  int rankInGroup, groupSize, size;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
   MPI_Comm_size(imageCommunicator, &groupSize);
   size = width * height;
@@ -88,6 +129,8 @@ pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_C
   } else {
     sizeOfChunk = chunksize;
   }
+//  pixel *sobelChunk = (pixel *)malloc(sizeOfChunk * sizeof(pixel));
+//  pixel *sobel;
   if (rankInGroup < remainingChunk) {
     return applySobelFilterFromTo(
       picture,
@@ -128,51 +171,53 @@ pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
 //pixel *applyBlurFilterFromTo(pixel* oneImage, int width, int height, int beginIndex, int endIndex, int blurSize, int threshold) {}
 
 pixel *applySobelFilterFromTo(pixel *image, int width, int height, int beginIndex, int endIndex) {
-  int j,k;
-  pixel *sobel = (pixel *)malloc((endIndex - beginIndex)* sizeof( pixel ) ) ;
-  for(j=1; j<height-1; j++)
-  {
-      for(k=1; k<width-1; k++)
+  int i, j, k;
+  pixel *sobel = (pixel *)malloc((endIndex - beginIndex)* sizeof(pixel)) ;
+  for(i = beginIndex; i < endIndex; i++) {
+    j = i / width;
+    k = i % width;
+    if (CONV(j,k, width) != i) {
+      fprintf(stderr, "%d - %d \n",CONV(j,k,width), i);
+    }
+    if (j >= 1 && j < height - 1 && k >= 1 && k < width-1) {
+      int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
+      int pixel_blue_so, pixel_blue_s, pixel_blue_se;
+      int pixel_blue_o , pixel_blue  , pixel_blue_e ;
+      float deltaX_blue ;
+      float deltaY_blue ;
+      float val_blue;
+
+      pixel_blue_no = image[CONV(j-1,k-1,width)].b ;
+      pixel_blue_n  = image[CONV(j-1,k  ,width)].b ;
+      pixel_blue_ne = image[CONV(j-1,k+1,width)].b ;
+      pixel_blue_so = image[CONV(j+1,k-1,width)].b ;
+      pixel_blue_s  = image[CONV(j+1,k  ,width)].b ;
+      pixel_blue_se = image[CONV(j+1,k+1,width)].b ;
+      pixel_blue_o  = image[CONV(j  ,k-1,width)].b ;
+      pixel_blue    = image[CONV(j  ,k  ,width)].b ;
+      pixel_blue_e  = image[CONV(j  ,k+1,width)].b ;
+
+      deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o + 2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
+      deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so - pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
+      val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
+      if ( val_blue > 50 )
       {
-          if (CONV(j,k,width) >= beginIndex && CONV(j,k, width) < endIndex) {
-            int pixel_blue_no, pixel_blue_n, pixel_blue_ne;
-            int pixel_blue_so, pixel_blue_s, pixel_blue_se;
-            int pixel_blue_o , pixel_blue  , pixel_blue_e ;
-            float deltaX_blue ;
-            float deltaY_blue ;
-            float val_blue;
-
-            pixel_blue_no = image[CONV(j-1,k-1,width)].b ;
-            pixel_blue_n  = image[CONV(j-1,k  ,width)].b ;
-            pixel_blue_ne = image[CONV(j-1,k+1,width)].b ;
-            pixel_blue_so = image[CONV(j+1,k-1,width)].b ;
-            pixel_blue_s  = image[CONV(j+1,k  ,width)].b ;
-            pixel_blue_se = image[CONV(j+1,k+1,width)].b ;
-            pixel_blue_o  = image[CONV(j  ,k-1,width)].b ;
-            pixel_blue    = image[CONV(j  ,k  ,width)].b ;
-            pixel_blue_e  = image[CONV(j  ,k+1,width)].b ;
-
-            deltaX_blue = -pixel_blue_no + pixel_blue_ne - 2*pixel_blue_o + 2*pixel_blue_e - pixel_blue_so + pixel_blue_se;
-            deltaY_blue = pixel_blue_se + 2*pixel_blue_s + pixel_blue_so - pixel_blue_ne - 2*pixel_blue_n - pixel_blue_no;
-            val_blue = sqrt(deltaX_blue * deltaX_blue + deltaY_blue * deltaY_blue)/4;
-            if ( val_blue > 50 )
-            {
-                sobel[CONV(j  ,k  ,width)-beginIndex].r = 255 ;
-                sobel[CONV(j  ,k  ,width)-beginIndex].g = 255 ;
-                sobel[CONV(j  ,k  ,width)-beginIndex].b = 255 ;
-            } else
-            {
-                sobel[CONV(j  ,k  ,width)-beginIndex].r = 0 ;
-                sobel[CONV(j  ,k  ,width)-beginIndex].g = 0 ;
-                sobel[CONV(j  ,k  ,width)-beginIndex].b = 0 ;
-            }
-          } else {
-            sobel[CONV(j  ,k  ,width)-beginIndex].r = image[CONV(j  ,k  ,width)].b ;
-            sobel[CONV(j  ,k  ,width)-beginIndex].g = image[CONV(j  ,k  ,width)].b ;
-            sobel[CONV(j  ,k  ,width)-beginIndex].b = image[CONV(j  ,k  ,width)].b ;
-          }
+          sobel[CONV(j  ,k  ,width)-beginIndex].r = 255 ;
+          sobel[CONV(j  ,k  ,width)-beginIndex].g = 255 ;
+          sobel[CONV(j  ,k  ,width)-beginIndex].b = 255 ;
+      } else
+      {
+          sobel[CONV(j  ,k  ,width)-beginIndex].r = 0 ;
+          sobel[CONV(j  ,k  ,width)-beginIndex].g = 0 ;
+          sobel[CONV(j  ,k  ,width)-beginIndex].b = 0 ;
       }
+    } else {
+      sobel[CONV(j  ,k  ,width)-beginIndex].r = image[CONV(j  ,k  ,width)].b ;
+      sobel[CONV(j  ,k  ,width)-beginIndex].g = image[CONV(j  ,k  ,width)].b ;
+      sobel[CONV(j  ,k  ,width)-beginIndex].b = image[CONV(j  ,k  ,width)].b ;
+    }
   }
+
   return sobel;
 }
 
