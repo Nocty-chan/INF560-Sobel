@@ -82,31 +82,14 @@ int main( int argc, char ** argv )
            copyImageIntoImage(image->p[n], picture, size);
          }
 
-         applyFiltersDistributedInCommunicator(picture, n, width, height, MPI_COMM_WORLD);
+         applyFiltersDistributedInCommunicator(picture, 0, width, height, MPI_COMM_WORLD);
+         MPI_Barrier(MPI_COMM_WORLD);
          if (rankInWorld == 0) {
            fprintf(stderr, "Sobel filter successfully Applied for image %d\n", n);
            copyImageIntoImage(picture, image->p[n], size);
          }
       }
-      if (rankInWorld == 0) {
-       gettimeofday(&t2, NULL);
-       duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-       printf( "Filtering done in %lf s \n", duration) ;
-       /* EXPORT Timer start */
-       gettimeofday(&t1, NULL);
-       /* Store file from array of pixels to GIF file */
-       fprintf(stderr, "Attempt at exporting.\n");
-       if ( !store_pixels( output_filename, image ) ) {
-         fprintf(stderr, "Attempt at exporting failed.\n");
-         return 1 ; }
-       /* EXPORT Timer stop */
-       gettimeofday(&t2, NULL);
-       duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-       printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
-       return 1;
-     }
-  }
-
+  } else {
     //Create communicators
     int k = totalProcesses / numberOfImages;
     int r = totalProcesses - k * numberOfImages;
@@ -133,37 +116,31 @@ int main( int argc, char ** argv )
     if (rankInGroup == 0 && rankInWorld != 0) {
       picture = receiveImageFromRoot(&width, &height, &size);
     }
-    // Processing each image
+
+    // Processing image
     applyFiltersDistributedInCommunicator(picture, color, width, height, imageCommunicator);
 
-      //Send results back to root.
-    if (rankInGroup == 0) {
-      if (rankInWorld != 0) {
-        //fprintf(stderr, "Sending picture %d of size %d\n",color, size);
-        sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, width * height);
-      }
-    }
-
-    if (rankInWorld == 0) {
-      // Get result back from other processes.
-      copyImageIntoImage(picture, image->p[0], size);
-      receiveGreyImageFromAllProcessesWithSize(image, r, k , numberOfImages);
-      /* FILTERS Timer stops */
-      gettimeofday(&t2, NULL);
-      duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-      printf( "Filtering done in %lf s \n", duration) ;
-      /* EXPORT Timer start */
-      gettimeofday(&t1, NULL);
-      fprintf(stderr, "Attempt at storing pixels.\n");
-      /* Store file from array of pixels to GIF file */
-      if ( !store_pixels( output_filename, image ) ) { return 1 ; }
-      /* EXPORT Timer stop */
-      gettimeofday(&t2, NULL);
-      duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-      printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
-    }
+    //Send results back to root.
+    gatherAllImagesToRoot(picture, rankInGroup, size, image, r, k, numberOfImages);
 
     MPI_Comm_free(&imageCommunicator);
-    MPI_Finalize();
-    return 0 ;
+  }
+
+  if (rankInWorld == 0) {
+    /* FILTERS Timer stops */
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf( "Filtering done in %lf s \n", duration) ;
+    /* EXPORT Timer start */
+    gettimeofday(&t1, NULL);
+    fprintf(stderr, "Attempt at storing pixels.\n");
+    /* Store file from array of pixels to GIF file */
+    if ( !store_pixels( output_filename, image ) ) { return 1 ; }
+    /* EXPORT Timer stop */
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+  }
+  MPI_Finalize();
+  return 0 ;
 }

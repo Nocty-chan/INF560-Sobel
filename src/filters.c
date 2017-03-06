@@ -260,7 +260,7 @@ void apply_blur_filter_once(pixel *image, int width, int height , int size, int 
   int j, k;
   /* Allocate array of new pixels */
   pixel *new = (pixel *)malloc(width * height * sizeof( pixel ) ) ;
-
+  copyImageIntoImage(image, new, width * height);
   /* Perform at least one blur iteration */
   do
   {
@@ -290,17 +290,6 @@ void apply_blur_filter_once(pixel *image, int width, int height , int size, int 
               new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
               new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
               new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
-          }
-      }
-
-      /* Copy the middle part of the image */
-      for(j=height/10-size; j<height*0.9+size; j++)
-      {
-          for(k=size; k<width-size; k++)
-          {
-              new[CONV(j,k,width)].r = image[CONV(j,k,width)].r ;
-              new[CONV(j,k,width)].g = image[CONV(j,k,width)].g ;
-              new[CONV(j,k,width)].b = image[CONV(j,k,width)].b ;
           }
       }
 

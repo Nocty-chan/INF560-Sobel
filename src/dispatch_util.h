@@ -294,3 +294,15 @@ inline pixel *receiveImageFromRoot(int *width, int *height, int *size) {
   receiveImageFromProcess(*size, picture, 0);
   return picture;
 }
+
+inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, animated_gif *image, int r, int k, int numberOfImages) {
+  int rankInWorld;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rankInWorld);
+  if (rankInGroup == 0 && rankInWorld != 0) {
+    sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, size);
+  }
+  if (rankInWorld == 0) {
+    copyImageIntoImage(picture, image->p[0], size);
+    receiveGreyImageFromAllProcessesWithSize(image, r, k, numberOfImages);
+  }
+}
