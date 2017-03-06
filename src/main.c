@@ -69,28 +69,66 @@ int main( int argc, char ** argv )
 
     //fprintf(stderr, "Process %d knows that there are %d images. \n", rankInWorld, numberOfImages);
     if (numberOfImages > totalProcesses) {
-       if (rankInWorld == 0) {
+      if (rankInWorld == 0) {
          fprintf(stderr, "Not enough processes, treating each image sequentially.\n");
-         int n;
-         for (n = 0; n < numberOfImages; n++) {
-           applyGrayFilterDistributedInCommunicator(image->p[n], image->width[n] * image->height[n], MPI_COMM_WORLD);
+      }
+      int n;
+      for (n = 0; n < numberOfImages; n++) {
+         if (rankInWorld == 0) {
+           width = image->width[n];
+           height = image->height[n];
          }
-         apply_blur_filter(image, 5, 20);
-         apply_sobel_filter(image);
-         gettimeofday(&t2, NULL);
-         duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-         printf( "Filtering done in %lf s \n", duration) ;
-         /* EXPORT Timer start */
-         gettimeofday(&t1, NULL);
-         /* Store file from array of pixels to GIF file */
-         if ( !store_pixels( output_filename, image ) ) { return 1 ; }
-         /* EXPORT Timer stop */
-         gettimeofday(&t2, NULL);
-         duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-         printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
-       }
-      return 1;
-    }
+         MPI_Bcast(&width, 1, MPI_INT, 0, MPI_COMM_WORLD);
+         MPI_Bcast(&height, 1, MPI_INT, 0, MPI_COMM_WORLD);
+         size = width * height;
+         //fprintf(stderr, "Broadcasting image %d of size %d.\n", color, size);
+         //Applying Gray Filter
+         //Dispatch image to all processes.
+        picture = (pixel *)malloc(size * sizeof(pixel));
+         if (rankInWorld == 0) {
+           copyImageIntoImage(image->p[n], picture, size);
+         }
+         broadcastImageToCommunicator(picture, size, rankInWorld, MPI_COMM_WORLD);
+         applyGrayFilterDistributedInCommunicator(
+           picture,
+           width * height,
+           MPI_COMM_WORLD);
+
+         if (rankInWorld == 0) {
+           fprintf(stderr, "Gray Filter successfully applied for image %d\n", n);
+           apply_blur_filter_once(picture, width, height, 5, 20);
+           fprintf(stderr, "Blur Filter successfully applied for image %d\n", n);
+         }
+         broadcastImageToCommunicator(picture, size, rankInWorld, MPI_COMM_WORLD);
+         applySobelFilterDistributedInCommunicator(
+           picture,
+           n,
+           width,
+           height,
+           MPI_COMM_WORLD);
+         if (rankInWorld == 0) {
+           fprintf(stderr, "Sobel filter successfully Applied for image %d\n", n);
+           copyImageIntoImage(picture, image->p[n], size);
+         }
+      }
+      if (rankInWorld == 0) {
+       gettimeofday(&t2, NULL);
+       duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+       printf( "Filtering done in %lf s \n", duration) ;
+       /* EXPORT Timer start */
+       gettimeofday(&t1, NULL);
+       /* Store file from array of pixels to GIF file */
+       fprintf(stderr, "Attempt at exporting.\n");
+       if ( !store_pixels( output_filename, image ) ) {
+         fprintf(stderr, "Attempt at exporting failed.\n");
+         return 1 ; }
+       /* EXPORT Timer stop */
+       gettimeofday(&t2, NULL);
+       duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+       printf( "Export done in %lf s in file %s\n", duration, output_filename ) ;
+       return 1;
+     }
+  }
 
     //Create communicators
     int k = totalProcesses / numberOfImages;
@@ -156,13 +194,16 @@ int main( int argc, char ** argv )
     applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
     if (rankInGroup == 0) {
       fprintf(stderr, "Gray Filter successfully applied.\n");
-      //apply_gray_filter_once(picture, size);
-      apply_blur_filter_once(picture, height, width, 5, 20);
-      //apply_sobel_filter_once(picture, width, height);
+      apply_blur_filter_once(picture, width, height, 5, 20);
       //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
     }
-
-    applySobelFilterDistributedInCommunicator(picture, color, width, height, imageCommunicator);
+    broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+    applySobelFilterDistributedInCommunicator(
+      picture,
+      color,
+      width,
+      height,
+      imageCommunicator);
 
       //Send results back to root.
     if (rankInGroup == 0) {

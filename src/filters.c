@@ -225,7 +225,7 @@ void apply_gray_filter_once(pixel *image, int size) {
  copyImageIntoImage(applyGrayFilterFromTo(image, 0, size), image, size);
 }
 
-void apply_blur_filter_once(pixel *image, int height, int width , int size, int threshold) {
+void apply_blur_filter_once(pixel *image, int width, int height , int size, int threshold) {
   int end = 0 ;
   int n_iter = 0 ;
   int j, k;
