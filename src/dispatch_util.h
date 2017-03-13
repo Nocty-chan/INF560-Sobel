@@ -1,10 +1,9 @@
 #include <mpi.h>
 #include <unistd.h>
 #include <stdio.h>
-
+#define CONV(l,c,nb_c) \
+    (l)*(nb_c)+(c)
 /* ALL METHODS FOR COMMUNICATING WITH OTHER PROCESSES */
-
-
 
 // Fill in R,G, B components arrays from pixel image.
 /* Arguments:
@@ -311,4 +310,69 @@ inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, ani
     copyImageIntoImage(picture, image->p[0], size);
     receiveGreyImageFromAllProcessesWithSize(image, r, k, numberOfImages);
   }
+}
+
+inline int receiveGrayPixelFromProcessOfCommunicator(int j, int k, int width, int rank, MPI_Comm imageCommunicator) {
+  MPI_Status status;
+  int pixelValue;
+  MPI_Recv(
+    &pixelValue,
+    1,
+    MPI_INT,
+    rank,
+    CONV(j,k,width),
+    imageCommunicator,
+    &status);
+  return pixelValue;
+}
+
+inline int *receiveGrayImageInCommunicator(int width, int height, MPI_Comm imageCommunicator) {
+  int coeff,r, sizeOfCommunicator, rankInGroup;
+  MPI_Comm_size(imageCommunicator, &sizeOfCommunicator);
+  coeff = width / sizeOfCommunicator;
+  r = width - coeff * sizeOfCommunicator;
+  // One blur iteration on process of rank rankInGroup
+  int j,k;
+  fprintf(stderr, "SizeOfCommunicator %d \n", sizeOfCommunicator);
+  int *grayReceive = (int *)malloc(width * height * sizeof(int));
+  int process;
+
+  for (int process = 1; process < r; process++) {
+    fprintf(stderr, "Receiving information from %d from %d to %d \n", process, process * (coeff + 1), (process + 1) *( coeff + 1));
+    for (k = process * (coeff + 1); k < (process + 1) * (coeff + 1); k++) {
+      for (j = 1; j < height - 1; j++) {
+      //  fprintf(stderr, "For pixel %d %d\n", j,k);
+        grayReceive[CONV(j,k,width)] = receiveGrayPixelFromProcessOfCommunicator(
+          j,
+          k,
+          width,
+          process,
+          imageCommunicator
+        );
+      }
+    //  fprintf(stderr, "Received column %d / %d from process %d \n", k, width, process);
+    }
+  }
+
+  for (int process = r; process < sizeOfCommunicator; process++) {
+    if (process != 0) {
+      fprintf(stderr, "Receiving information from %d from %d to %d \n", process, process * coeff + r, (process + 1) * coeff + r);
+
+      for (k = process * coeff + r; k < (process + 1) * coeff + r; k++) {
+        for (j = 1; j < height - 1; j++) {
+        //  fprintf(stderr, "For pixel %d %d\n", j,k);
+          grayReceive[CONV(j,k,width)] = receiveGrayPixelFromProcessOfCommunicator(
+            j,
+            k,
+            width,
+            process,
+            imageCommunicator
+          );
+        }
+      }
+      fprintf(stderr, "Received information from %d from %d to %d \n", process, process * coeff + r, (process + 1) * coeff + r);
+
+    }
+  }
+  return grayReceive;
 }

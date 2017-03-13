@@ -33,23 +33,30 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   int j,k;
   int beginColumn, endColumn;
   if (rankInGroup < r) {
-    beginColumn = rankInGroup * (c + 1);
-    endColumn = (rankInGroup + 1) * (c + 1);
+    beginColumn = rankInGroup * (coeff + 1);
+    endColumn = (rankInGroup + 1) * (coeff + 1);
   } else {
-    beginColumn = rankInGroup * c + rankInGroup;
-    endColumn = (rankInGroup + 1) * c + rankInGroup;
+    beginColumn = rankInGroup * coeff + r;
+    endColumn = (rankInGroup + 1) * coeff + r;
   }
 //  fprintf(stderr, "Determined number of columns %d out of  %d\n", c, width);
   beginColumn = (beginColumn > 5) ? beginColumn : 5;
   endColumn = (endColumn < width - 5) ? endColumn : width - 5;
-  /*pixel *new = oneBlurIterationFromTo(picture, beginColumn, endColumn, width, height, 5);
+  pixel *new = oneBlurIterationFromTo(picture, beginColumn, endColumn, width, height, 5);
   copyImageIntoImage(new, picture, size);
   free(new);
   MPI_Request request;
-  if (rankInGroup != 0 && rankInGroup < r) {
-    fprintf(stderr, "Process %d Sending information to root\n", rankInGroup);
-    for (j = 1; j < height - 1; j++) {
-      for (k = rankInGroup * (c + 1); k < (rankInGroup + 1) * (c + 1); k++) {
+  if (rankInGroup < r) {
+    beginColumn = rankInGroup * (coeff + 1);
+    endColumn = (rankInGroup + 1) * (coeff + 1);
+  } else {
+    beginColumn = rankInGroup * coeff + r;
+    endColumn = (rankInGroup + 1) * coeff + r;
+  }
+  if (rankInGroup != 0) {
+    fprintf(stderr, "Process %d Sending information to root from %d to %d\n", rankInGroup, beginColumn, endColumn);
+    for (k = beginColumn; k < endColumn; k++) {
+      for (j = 1; j < height - 1; j++) {
         MPI_Isend(
           &(picture[CONV(j,k,width)].r),
           1,
@@ -59,59 +66,12 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
           imageCommunicator,
           &request);
       }
+    //  fprintf(stderr, "Process %d sends column %d/%d \n", rankInGroup, k, width);
     }
-  }
-  if (rankInGroup >= r && rankInGroup !=0) {
-    for (j = 1; j < height - 1; j++) {
-      for (k = rankInGroup * c + r; k < (rankInGroup + 1) * c + r; k++) {
-        MPI_Send(
-          &(picture[CONV(j,k,width)].r),
-          1,
-          MPI_INT,
-          0,
-          CONV(j,k,width),
-          imageCommunicator);
-      }
-    }
-    fprintf(stderr, "Process %d Sending information to root for pixel %d %d\n", rankInGroup, j, k);
   }
   if (rankInGroup == 0 && sizeOfCommunicator > 1) {
-    int *grayReceive = (int *)malloc(size * sizeof(int));
-    int process;
     fprintf(stderr, "Root is preparing for reception.\n");
-    for (int process = 1; process < r; process++) {
-      fprintf(stderr, "Receiving information from %d \n", process);
-      for (j = 1; j < height - 1; j++) {
-        for (k = rankInGroup * (c + 1); k < (rankInGroup + 1) * (c + 1); k++) {
-          MPI_Irecv(
-            &grayReceive[CONV(j,k,width)],
-            1,
-            MPI_INT,
-            process,
-            CONV(j,k,width),
-            imageCommunicator,
-            &request);
-        }
-      }
-    }
-    for (int process = r; process < sizeOfCommunicator; process++) {
-      if (process != 0) {
-        fprintf(stderr, "Receiving information from %d \n", process);
-        for (j = 1; j < height - 1; j++) {
-          for (k = rankInGroup * c + r; k < (rankInGroup + 1) * c + r; k++) {
-            MPI_Irecv(
-              &grayReceive[CONV(j,k,width)],
-              1,
-              MPI_INT,
-              process,
-              CONV(j,k,width),
-              imageCommunicator,
-              &request);
-              fprintf(stderr, "Received %d %d \n",j ,k);
-          }
-        }
-      }
-    }
+    int *grayReceive = receiveGrayImageInCommunicator(width, height, imageCommunicator);
     for (j = 1; j < height - 1; j++) {
       for (k = 1; k < width - 1; k++) {
         picture[CONV(j,k,width)].r = grayReceive[CONV(j,k,width)];
@@ -123,7 +83,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   }
 
   fprintf(stderr, "Process %d \n", rankInGroup);
-  fprintf(stderr, "Communication ended\n");*/
+  fprintf(stderr, "Communication ended\n");
   if (rankInGroup == 0) {
     apply_blur_filter_once(picture, width, height, 5, 1);
   }
