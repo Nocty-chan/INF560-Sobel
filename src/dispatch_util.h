@@ -1,3 +1,5 @@
+#ifndef __DISPATCH_UTIL__
+#define __DISPATCH_UTIL__
 #include <mpi.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -250,7 +252,10 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
     }
   }
-
+  if (grayResult == NULL || graySend == NULL) {
+  fprintf(stderr, "Process %d, graySend %p grayResult %p",  rankInGroup, graySend, grayResult); 
+  MPI_Abort(MPI_COMM_WORLD, 1); 
+}
   MPI_Gatherv(
      graySend,
      actualSize,
@@ -306,3 +311,5 @@ inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, ani
     receiveGreyImageFromAllProcessesWithSize(image, r, k, numberOfImages);
   }
 }
+
+#endif

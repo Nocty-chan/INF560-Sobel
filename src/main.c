@@ -3,7 +3,7 @@
  *
  * Image Filtering Project
  */
-
+#pragma once
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -83,9 +83,9 @@ int main( int argc, char ** argv )
          }
 
          applyFiltersDistributedInCommunicator(picture, 0, width, height, MPI_COMM_WORLD);
-         MPI_Barrier(MPI_COMM_WORLD);
+
          if (rankInWorld == 0) {
-           fprintf(stderr, "Sobel filter successfully Applied for image %d\n", n);
+           //fprintf(stderr, "Sobel filter successfully Applied for image %d\n", n);
            copyImageIntoImage(picture, image->p[n], size);
          }
       }
@@ -122,18 +122,18 @@ int main( int argc, char ** argv )
 
     //Send results back to root.
     gatherAllImagesToRoot(picture, rankInGroup, size, image, r, k, numberOfImages);
-
+    free(picture);
     MPI_Comm_free(&imageCommunicator);
   }
-
+   MPI_Barrier(MPI_COMM_WORLD);
   if (rankInWorld == 0) {
     /* FILTERS Timer stops */
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf( "Filtering done in %lf s \n", duration) ;
+    printf( "Filtering done in %lf s from process %d \n", duration, rankInWorld) ;
     /* EXPORT Timer start */
     gettimeofday(&t1, NULL);
-    fprintf(stderr, "Attempt at storing pixels.\n");
+    //fprintf(stderr, "Attempt at storing pixels.\n");
     /* Store file from array of pixels to GIF file */
     if ( !store_pixels( output_filename, image ) ) { return 1 ; }
     /* EXPORT Timer stop */

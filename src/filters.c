@@ -1,5 +1,5 @@
 #include "filters.h"
-#include "dispatch_util.h"
+//#include "dispatch_util.h"
 #include <math.h>
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
@@ -57,9 +57,11 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
   for (i = 0; i < sizeOfChunk; i++) {
     grayArray[i] = sobelChunk[i].g;
   }
+  free(sobelChunk);
 
   //Gather processedChunk to root.
    int *totalGray = (int *)malloc (size * sizeof(int));
+   fprintf(stderr, "Size: %d and totalgray %p \n.", size, totalGray);
    gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      totalGray,
      grayArray,
@@ -75,7 +77,8 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
   free(totalGray);
 }
 void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator) {
-  int groupSize, rankInGroup;
+  int groupSize, rankInGroup;  
+  int *totalGray;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
   MPI_Comm_size(imageCommunicator, &groupSize);
   //Determine chunksizes for Gray Filter
@@ -98,10 +101,19 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
   for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
     grayArray[i] = grayChunk[i].g;
   }
+
+  free(grayChunk);
+  grayChunk = NULL;
   //fprintf(stderr, "Copied into array of int on process %d of group %d\n", rankInGroup, color);
 
   //Gather processedChunk to root.
-   int *totalGray = (int *)malloc (size * sizeof(int));
+  if (rankInGroup == 0) {
+   totalGray = (int *)malloc (size * sizeof(int));
+   if (totalGray == NULL) {
+	fprintf(stderr, "Malloc failed\n");
+  }
+}
+ //fprintf(stderr, " In Gray Filter Size: %d and totalgray %p \n.", size, totalGray);
    gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      totalGray,
      grayArray,
@@ -113,7 +125,6 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
   if (rankInGroup == 0) {
     greyToPixel(picture, totalGray, size);
   }
-
   free(grayArray);
   free(totalGray);
 }
@@ -158,8 +169,6 @@ pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_C
   } else {
     sizeOfChunk = chunksize;
   }
-//  pixel *sobelChunk = (pixel *)malloc(sizeOfChunk * sizeof(pixel));
-//  pixel *sobel;
   if (rankInGroup < remainingChunk) {
     return applySobelFilterFromTo(
       picture,
