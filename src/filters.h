@@ -16,6 +16,7 @@ void apply_sobel_filter_once(pixel *oneImage, int width, int height);
 /* Applies filter on part of one image */
 pixel *applySobelFilterFromTo(pixel *oneImage, int width, int height, int beginIndex, int endIndex);
 pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex);
+pixel *oneBlurIterationFromTo(pixel *oneImage, int beginColumn, int endColumn, int width, int height, int size);
 
 /* Applies filter from one process */
 pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommunicator);
