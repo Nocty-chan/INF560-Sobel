@@ -195,7 +195,14 @@ inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGro
   int *green = malloc(size * sizeof (int));
   if (rankInGroup == 0) {
     pixelToArray(picture, red, green, blue, size);
+    int i;
+  /*  for (i = 0; i < size; i++) {
+      fprintf(stderr, "Red %d: %d\n", i, red[i]);
+      fprintf(stderr, "Blue %d: %d\n", i, blue[i]);
+      fprintf(stderr, "Green %d: %d\n", i, green[i]);
+    }*/
   }
+
   MPI_Bcast(red, size, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(blue, size, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(green, size, MPI_INT, 0, imageCommunicator);
@@ -250,7 +257,6 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
     }
   }
-
   MPI_Gatherv(
      graySend,
      actualSize,

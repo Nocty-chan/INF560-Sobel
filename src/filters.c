@@ -5,9 +5,10 @@
     (l)*(nb_c)+(c)
 
 void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator) {
-  int size, rankInGroup;
+  int size, rankInGroup, sizeOfCommunicator;
   MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
+  MPI_Comm_size(imageCommunicator, &sizeOfCommunicator);
   size = width * height;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
 
@@ -18,10 +19,167 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
   //Applying Gray Filter
   applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
+  printf("Gray Filter successfully applied.\n");
+  /*broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+  printf("Broadcast\n" );
+  int coeff,r,c;
+  coeff = width / sizeOfCommunicator;
+  r = width - coeff * sizeOfCommunicator;
+  c = coeff; // Number of columns treated by a process.
+  if (rankInGroup < r) {
+    c += 1;
+  }
+  // One blur iteration on process of rank rankInGroup
+  int j,k;
+  int beginColumn, endColumn;
+  if (rankInGroup < r) {
+    beginColumn = rankInGroup * (c + 1);
+    endColumn = (rankInGroup + 1) * (c + 1);
+  } else {
+    beginColumn = rankInGroup * c + rankInGroup;
+    endColumn = (rankInGroup + 1) * c + rankInGroup;
+  }
+  fprintf(stderr, "Determined number of columns %d out of  %d\n", c, width);
+  beginColumn = (beginColumn > 5) ? beginColumn : 5;
+  endColumn = (endColumn < width - 5) ? endColumn : width - 5;
+  pixel *new = (pixel *)malloc(size * sizeof(pixel));
+  copyImageIntoImage(picture, new, size);
+  fprintf(stderr, "Copied picture into new.\n");
+  for(k=beginColumn; k<endColumn; k++)
+  {
+    for(j=5; j<height/10-5; j++)
+      {
+          int stencil_j, stencil_k ;
+          int t_r = 0 ;
+          int t_g = 0 ;
+          int t_b = 0 ;
+
+          for ( stencil_j = -5 ; stencil_j <= 5 ; stencil_j++ )
+          {
+              for ( stencil_k = -5 ; stencil_k <= 5 ; stencil_k++ )
+              {
+                  t_r += picture[CONV(j+stencil_j,k+stencil_k,width)].r ;
+                  t_g += picture[CONV(j+stencil_j,k+stencil_k,width)].g ;
+                  t_b += picture[CONV(j+stencil_j,k+stencil_k,width)].b ;
+              }
+          }
+
+          new[CONV(j,k,width)].r = t_r / ( (2*5+1)*(2*5+1) ) ;
+          new[CONV(j,k,width)].g = t_g / ( (2*5+1)*(2*5+1) ) ;
+          new[CONV(j,k,width)].b = t_b / ( (2*5+1)*(2*5+1) ) ;
+      }
+
+  // Apply blur on the bottom part of the image (10%)
+  for(j=height*0.9+5; j<height-5; j++)
+  {
+          int stencil_j, stencil_k ;
+          int t_r = 0 ;
+          int t_g = 0 ;
+          int t_b = 0 ;
+
+          for ( stencil_j = -5 ; stencil_j <= 5 ; stencil_j++ )
+          {
+              for ( stencil_k = -5 ; stencil_k <= 5 ; stencil_k++ )
+              {
+                  t_r += picture[CONV(j+stencil_j,k+stencil_k,width)].r ;
+                  t_g += picture[CONV(j+stencil_j,k+stencil_k,width)].g ;
+                  t_b += picture[CONV(j+stencil_j,k+stencil_k,width)].b ;
+              }
+          }
+
+          new[CONV(j,k,width)].r = t_r / ( (2*5+1)*(2*5+1) ) ;
+          new[CONV(j,k,width)].g = t_g / ( (2*5+1)*(2*5+1) ) ;
+          new[CONV(j,k,width)].b = t_b / ( (2*5+1)*(2*5+1) ) ;
+  }
+}
+
+  for (j = 1; j < height - 1; j++) {
+    for (k = beginColumn; k < endColumn; k++) {
+      picture[CONV(j  ,k  ,width)].r = new[CONV(j  ,k  ,width)].r ;
+      picture[CONV(j  ,k  ,width)].g = new[CONV(j  ,k  ,width)].g ;
+      picture[CONV(j  ,k  ,width)].b = new[CONV(j  ,k  ,width)].b ;
+    }
+  }
+  free(new);
+
+  fprintf(stderr, "Applied blur once\n");
+  MPI_Request request;
+  if (rankInGroup != 0 && rankInGroup < r) {
+    fprintf(stderr, "Sending information to root\n");
+    for (j = 1; j < height - 1; j++) {
+      for (k = rankInGroup * (c + 1); k < (rankInGroup + 1) * (c + 1); k++) {
+        MPI_Isend(
+          &(picture[CONV(j,k,width)].r),
+          1,
+          MPI_INT,
+          0,
+          CONV(j,k,width),
+          imageCommunicator,
+          &request);
+      }
+    }
+  }
+  if (rankInGroup >= r) {
+    for (j = 1; j < height - 1; j++) {
+      for (k = rankInGroup * c + r; k < (rankInGroup + 1) * c + r; k++) {
+        MPI_Isend(
+          &(picture[CONV(j,k,width)].r),
+          1,
+          MPI_INT,
+          0,
+          CONV(j,k,width),
+          imageCommunicator,
+          &request);
+      }
+    }
+  }
+  if (rankInGroup == 0 && sizeOfCommunicator > 1) {
+    MPI_Status status;
+    int *grayReceive = (int *)malloc(size * sizeof(int));
+    int process;
+    for (int process = 1; process < r; process++) {
+      fprintf(stderr, "Receiving information from %d \n", process);
+      for (j = 1; j < height - 1; j++) {
+        for (k = rankInGroup * (c + 1); k < (rankInGroup + 1) * (c + 1); k++) {
+          MPI_Recv(
+            &grayReceive[CONV(j,k,width)],
+            1,
+            MPI_INT,
+            process,
+            CONV(j,k,width),
+            imageCommunicator,
+            &status);
+        }
+      }
+    }
+    for (int process = r; process < sizeOfCommunicator; process++) {
+      for (j = 1; j < height - 1; j++) {
+        for (k = rankInGroup * c + r; k < (rankInGroup + 1) * c + r; k++) {
+          MPI_Recv(
+            &grayReceive[CONV(j,k,width)],
+            1,
+            MPI_INT,
+            process,
+            CONV(j,k,width),
+            imageCommunicator,
+            &status);
+        }
+      }
+    }
+    MPI_Barrier(imageCommunicator);
+    for (j = 1; j < height - 1; j++) {
+      for (k = 1; k < width - 1; k++) {
+        picture[CONV(j,k,width)].r = grayReceive[CONV(j,k,width)];
+        picture[CONV(j,k,width)].g = grayReceive[CONV(j,k,width)];
+        picture[CONV(j,k,width)].b = grayReceive[CONV(j,k,width)];
+      }
+    }
+    free(grayReceive);
+  }*/
+
   if (rankInGroup == 0) {
-    fprintf(stderr, "Gray Filter successfully applied.\n");
-    apply_blur_filter_once(picture, width, height, 5, 20);
-    //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
+    apply_blur_filter_once(picture, width, height, 5, 1);
+    fprintf(stderr, "Blur applied");
   }
   fprintf(stderr, "Sobel filter\n");
   //Apply Sobel filter.
@@ -91,11 +249,11 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
   } else {
     sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
   }
-  /*fprintf(stderr, "Chunksize %d, remaining %d\n", chunksizeForGrayFilter, remainingChunkForGrayFilter);
-  fprintf(stderr, "On process %d of group %d of size %d, sizeOfChunkForGrayFilter is %d out of %d.\n", rankInGroup, color, groupSize, sizeOfChunkForGrayFilter, size);*/
+  fprintf(stderr, "Chunksize %d, remaining %d\n", chunksizeForGrayFilter, remainingChunkForGrayFilter);
+  //fprintf(stderr, "On process %d of group %d of size %d, sizeOfChunkForGrayFilter is %d out of %d.\n", rankInGroup, color, groupSize, sizeOfChunkForGrayFilter, size);
   //Apply gray filter
   pixel *grayChunk = applyGrayFilterOnOneProcess(picture, size, imageCommunicator);
-//  fprintf(stderr, "Applied gray filter on process %d of group %d\n", rankInGroup, color);
+  //fprintf(stderr, "Applied gray filter on process %d of group %d\n", rankInGroup, color);
   //Convert processedChunk into int array.
   int *grayArray = (int *)malloc(sizeOfChunkForGrayFilter * sizeof(int));
   int i;
