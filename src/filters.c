@@ -23,8 +23,10 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
     apply_blur_filter_once(picture, width, height, 5, 20);
     //fprintf(stderr, "Processed image %d on process %d \n", color, rankInWorld);
   }
+  fprintf(stderr, "Sobel filter\n");
   //Apply Sobel filter.
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
+  fprintf(stderr, "Broadcast\n");
   applySobelFilterDistributedInCommunicator(
     picture,
     color,
@@ -57,6 +59,8 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
   for (i = 0; i < sizeOfChunk; i++) {
     grayArray[i] = sobelChunk[i].g;
   }
+
+  free(sobelChunk);
 
   //Gather processedChunk to root.
    int *totalGray = (int *)malloc (size * sizeof(int));
@@ -99,9 +103,10 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
     grayArray[i] = grayChunk[i].g;
   }
   //fprintf(stderr, "Copied into array of int on process %d of group %d\n", rankInGroup, color);
-
+  free(grayChunk);
   //Gather processedChunk to root.
    int *totalGray = (int *)malloc (size * sizeof(int));
+
    gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      totalGray,
      grayArray,
