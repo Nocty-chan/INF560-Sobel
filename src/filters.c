@@ -19,15 +19,11 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
   //Applying Gray Filter
   applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
-  printf("Gray Filter successfully applied.\n");
-  if (rankInGroup == 0) {
-    transposeImage(picture, size, width, height);
-  }
-  broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
-  applyBlurFilterDistributedInCommunicator(picture, width, height,5, imageCommunicator);
+  //printf("Gray Filter successfully applied.\n");
+  applyBlurFilterDistributedInCommunicator(picture, width, height, 5, 20, imageCommunicator);
 
   if (rankInGroup == 0) {
-    //apply_blur_filter_once(picture, width, height, 5, -1);
+  //  apply_blur_filter_once(picture, width, height, 5, 20);
   }
 
   //fprintf(stderr, "Sobel filter\n");
@@ -42,12 +38,38 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
     imageCommunicator);
 }
 
-void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int height, int filterSize, MPI_Comm imageCommunicator) {
+void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int height, int blurSize, int threshold, MPI_Comm imageCommunicator) {
+  int rankInGroup;
+  MPI_Comm_rank(imageCommunicator, &rankInGroup);
+  int end = 0 ;
+  int n_iter = 0 ;
+  pixel *new;
+  int j,k;
+
+  /* Perform at least one blur iteration */
+  //fprintf(stderr, "Preparing iteration\n");
+  do
+  {
+      end = 1 ;
+      n_iter++ ;
+      if (rankInGroup == 0) {
+      //  fprintf(stderr, "Iteration %d\n", n_iter);
+        transposeImage(picture, width * height, width, height);
+      }
+      broadcastImageToCommunicator(picture, width * height, rankInGroup, imageCommunicator);
+      end = OneBlurIterationDistributedInCommunicator(picture, width, height, blurSize, threshold, imageCommunicator);
+  //      fprintf(stderr, "End: %d \n", end);
+  }
+  while ( threshold > 0 && !end ) ;
+//  printf( "Nb iter for image %d\n", n_iter ) ;
+  free (new) ;
+}
+
+int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int height, int filterSize, int threshold, MPI_Comm imageCommunicator) {
   int sizeOfCommunicator, rankInGroup, size;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
   MPI_Comm_size(imageCommunicator, &sizeOfCommunicator);
   size = width * height;
-
   int coeff,r,columnSize;
   coeff = width / sizeOfCommunicator;
   r = width - coeff * sizeOfCommunicator;
@@ -55,7 +77,7 @@ void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int hei
   if (rankInGroup < r) {
     columnSize += 1;
   }
-  fprintf(stderr, "On process %d: columnSize : %d / %d\n", rankInGroup, columnSize, width);
+  //fprintf(stderr, "On process %d: columnSize : %d / %d\n", rankInGroup, columnSize, width);
   pixel *blurChunk = oneBlurIterationOnOneProcess(picture, width, height, imageCommunicator);
   int *grayBlur = (int *)malloc(columnSize * height * sizeof(int));
   int i;
@@ -92,18 +114,36 @@ void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int hei
  free(displs);
  free(recvCounts);
 
+ int end = 1;
  //Put total gray into picture.
  if (rankInGroup == 0) {
+   int j,k;
+   for(j=1; j<height-1; j++) {
+       for(k=1; k<width-1; k++) {
+           float diff;
+           diff = (totalBlur[CONV(j  ,k  ,width)] - picture[CONV(j  ,k  ,width)].r) ;
+           if ( diff > threshold || -diff > threshold) {
+               end = 0 ;
+           }
+       }
+   }
    greyToPixel(picture, totalBlur, size);
    transposeImage(picture, size, height, width);
  }
 
+ MPI_Bcast(
+   &end,
+   1,
+   MPI_INT,
+   0,
+   imageCommunicator);
  free(grayBlur);
-// free(totalBlur);
+ free(totalBlur);
+ return end;
 }
 
 void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator) {
-  int groupSize, rankInGroup, size;
+  int groupSize, rankInGroup, size, end;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
   MPI_Comm_size(imageCommunicator, &groupSize);
   size = width * height;
@@ -145,6 +185,7 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
   free(grayArray);
   free(totalGray);
 }
+
 void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator) {
   int groupSize, rankInGroup;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
@@ -237,7 +278,7 @@ pixel *oneBlurIterationOnOneProcess(pixel *picture, int width, int height, MPI_C
     beginColumn = rankInGroup * coeff + r;
     endColumn = (rankInGroup + 1) * coeff + r;
   }
-  fprintf(stderr, "On process %d beginColumn : %d , endColumn : %d \n",rankInGroup, beginColumn, endColumn);
+  //fprintf(stderr, "On process %d beginColumn : %d , endColumn : %d \n",rankInGroup, beginColumn, endColumn);
   return oneBlurIterationFromTo(picture, beginColumn, endColumn, width, height, 5);
 }
 
