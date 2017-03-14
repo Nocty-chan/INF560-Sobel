@@ -21,11 +21,11 @@ pixel *oneBlurIterationFromTo(pixel *oneImage, int beginColumn, int endColumn, i
 /* Applies filter from one process */
 pixel *applyGrayFilterOnOneProcess(pixel *picture, int size, MPI_Comm imageCommunicator);
 pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_Comm imageCommunicator);
-
+pixel *oneBlurIterationOnOneProcess(pixel *picture, int width, int height, MPI_Comm imageCommunicator);
 
 /* Applies filter on one image using processes of a communicator */
 void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator);
 void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator);
-
+void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int height, int blurSize, MPI_Comm imageCommunicator);
 /* Applies filters on one image using processes of a communicator */
 void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator);
