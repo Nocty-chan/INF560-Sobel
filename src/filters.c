@@ -22,10 +22,6 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   //printf("Gray Filter successfully applied.\n");
   applyBlurFilterDistributedInCommunicator(picture, width, height, 5, 20, imageCommunicator);
 
-  if (rankInGroup == 0) {
-  //  apply_blur_filter_once(picture, width, height, 5, 20);
-  }
-
   //fprintf(stderr, "Sobel filter\n");
   //Apply Sobel filter.
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
