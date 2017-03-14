@@ -45,17 +45,16 @@ void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int hei
   int n_iter = 0 ;
   pixel *new;
   int j,k;
-
+  if (rankInGroup == 0) {
+  //  fprintf(stderr, "Iteration %d\n", n_iter);
+    transposeImage(picture, width * height, width, height);
+  }
   /* Perform at least one blur iteration */
   //fprintf(stderr, "Preparing iteration\n");
   do
   {
       end = 1 ;
       n_iter++ ;
-      if (rankInGroup == 0) {
-      //  fprintf(stderr, "Iteration %d\n", n_iter);
-        transposeImage(picture, width * height, width, height);
-      }
       broadcastImageToCommunicator(picture, width * height, rankInGroup, imageCommunicator);
       end = OneBlurIterationDistributedInCommunicator(picture, width, height, blurSize, threshold, imageCommunicator);
   //      fprintf(stderr, "End: %d \n", end);
@@ -63,6 +62,9 @@ void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int hei
   while ( threshold > 0 && !end ) ;
 //  printf( "Nb iter for image %d\n", n_iter ) ;
   free (new) ;
+  if (rankInGroup == 0) {
+    transposeImage(picture, width * height, height, width);
+  }
 }
 
 int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int height, int filterSize, int threshold, MPI_Comm imageCommunicator) {
@@ -128,7 +130,6 @@ int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int hei
        }
    }
    greyToPixel(picture, totalBlur, size);
-   transposeImage(picture, size, height, width);
  }
 
  MPI_Bcast(
