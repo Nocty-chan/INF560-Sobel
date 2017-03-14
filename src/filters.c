@@ -22,12 +22,13 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   printf("Gray Filter successfully applied.\n");
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
   fprintf(stderr, "Broadcast\n");
-  int coeff,r,c;
+/*  transposeImage(picture, size, width, height);
+  int coeff,r,columnSize;
   coeff = width / sizeOfCommunicator;
   r = width - coeff * sizeOfCommunicator;
-  c = coeff; // Number of columns treated by a process.
+  columnSize = coeff; // Number of columns treated by a process.
   if (rankInGroup < r) {
-    c += 1;
+    columnSize += 1;
   }
   // One blur iteration on process of rank rankInGroup
   int j,k;
@@ -39,12 +40,13 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
     beginColumn = rankInGroup * coeff + r;
     endColumn = (rankInGroup + 1) * coeff + r;
   }
-//  fprintf(stderr, "Determined number of columns %d out of  %d\n", c, width);
-  beginColumn = (beginColumn > 5) ? beginColumn : 5;
-  endColumn = (endColumn < width - 5) ? endColumn : width - 5;
+
   pixel *new = oneBlurIterationFromTo(picture, beginColumn, endColumn, width, height, 5);
   copyImageIntoImage(new, picture, size);
   free(new);
+  int *greyArray = (int *)malloc(size * sizeof(int));
+  pixelToGreyArray(picture, greyArray, size);
+
   MPI_Request request;
   if (rankInGroup < r) {
     beginColumn = rankInGroup * (coeff + 1);
@@ -56,7 +58,6 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   if (rankInGroup != 0) {
     fprintf(stderr, "Process %d Sending information to root from %d to %d\n", rankInGroup, beginColumn, endColumn);
     for (k = beginColumn; k < endColumn; k++) {
-      for (j = 1; j < height - 1; j++) {
         MPI_Isend(
           &(picture[CONV(j,k,width)].r),
           1,
@@ -65,7 +66,6 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
           CONV(j,k,width),
           imageCommunicator,
           &request);
-      }
     //  fprintf(stderr, "Process %d sends column %d/%d \n", rankInGroup, k, width);
     }
   }
@@ -83,7 +83,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   }
 
   fprintf(stderr, "Process %d \n", rankInGroup);
-  fprintf(stderr, "Communication ended\n");
+  fprintf(stderr, "Communication ended\n");*/
   if (rankInGroup == 0) {
     apply_blur_filter_once(picture, width, height, 5, 1);
   }
@@ -320,11 +320,22 @@ pixel *applySobelFilterFromTo(pixel *image, int width, int height, int beginInde
 }
 
 pixel *oneBlurIterationFromTo(pixel *picture, int beginColumn, int endColumn, int width, int height, int size) {
-  pixel *new = (pixel *)malloc(width * height * sizeof(pixel));
-  copyImageIntoImage(picture, new, width*height);
+  pixel *new = (pixel *)malloc((endColumn - beginColumn)* height * sizeof(pixel));
+  int beginIndex, endIndex;
+  beginIndex = beginColumn * height;
+  endIndex = (endColumn + 1) * height;
   int k,j;
 
   //fprintf(stderr, "Copied picture into new.\n");
+  for (k = beginColumn; k < endColumn; k++) {
+    for (j = 0; j < height; j++) {
+      new[CONV(k,j,height) - beginIndex].r = picture[CONV(k,j,height)].r;
+      new[CONV(k,j,height) - beginIndex].g = picture[CONV(k,j,height)].g;
+      new[CONV(k,j,height) - beginIndex].b = picture[CONV(k,j,height)].b;
+    }
+  }
+  beginColumn = (beginColumn > size) ? beginColumn : size;
+  endColumn = (endColumn < width - size) ? endColumn : width - size;
   for(k=beginColumn; k<endColumn; k++)
   {
     for(j=size; j<height/10-size; j++)
@@ -338,15 +349,15 @@ pixel *oneBlurIterationFromTo(pixel *picture, int beginColumn, int endColumn, in
           {
               for ( stencil_k = -size ; stencil_k <= size ; stencil_k++ )
               {
-                  t_r += picture[CONV(j+stencil_j,k+stencil_k,width)].r ;
-                  t_g += picture[CONV(j+stencil_j,k+stencil_k,width)].g ;
-                  t_b += picture[CONV(j+stencil_j,k+stencil_k,width)].b ;
+                  t_r += picture[CONV(k+stencil_k,j+stencil_j,height)].r ;
+                  t_g += picture[CONV(k+stencil_k,j+stencil_j,height)].g ;
+                  t_b += picture[CONV(k+stencil_k,j+stencil_j,height)].b ;
               }
           }
 
-          new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-          new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-          new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+          new[CONV(k,j,height) - beginIndex].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+          new[CONV(k,j,height) - beginIndex].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+          new[CONV(k,j,height) - beginIndex].b = t_b / ( (2*size+1)*(2*size+1) ) ;
       }
 
   // Apply blur on the bottom part of the image (10%)
@@ -361,15 +372,15 @@ pixel *oneBlurIterationFromTo(pixel *picture, int beginColumn, int endColumn, in
           {
               for ( stencil_k = -size; stencil_k <= size ; stencil_k++ )
               {
-                  t_r += picture[CONV(j+stencil_j,k+stencil_k,width)].r ;
-                  t_g += picture[CONV(j+stencil_j,k+stencil_k,width)].g ;
-                  t_b += picture[CONV(j+stencil_j,k+stencil_k,width)].b ;
+                t_r += picture[CONV(k+stencil_k,j+stencil_j,height)].r ;
+                t_g += picture[CONV(k+stencil_k,j+stencil_j,height)].g ;
+                t_b += picture[CONV(k+stencil_k,j+stencil_j,height)].b ;
               }
           }
 
-          new[CONV(j,k,width)].r = t_r / ( (2*size+1)*(2*size+1) ) ;
-          new[CONV(j,k,width)].g = t_g / ( (2*size+1)*(2*size+1) ) ;
-          new[CONV(j,k,width)].b = t_b / ( (2*size+1)*(2*size+1) ) ;
+          new[CONV(k,j,height) - beginIndex].r = t_r / ( (2*size+1)*(2*size+1) ) ;
+          new[CONV(k,j,height) - beginIndex].g = t_g / ( (2*size+1)*(2*size+1) ) ;
+          new[CONV(k,j,height) - beginIndex].b = t_b / ( (2*size+1)*(2*size+1) ) ;
   }
 }
 return new;
@@ -387,12 +398,13 @@ void apply_blur_filter_once(pixel *image, int width, int height , int size, int 
   /* Allocate array of new pixels */
   pixel *new;
   /* Perform at least one blur iteration */
-  fprintf(stderr, "Preparing iteration\n");
+  //fprintf(stderr, "Preparing iteration\n");
+  transposeImage(image, width * height, width ,height);
   do
   {
       end = 1 ;
       n_iter++ ;
-      new = oneBlurIterationFromTo(image, size, width - size, width, height, size);
+      new = oneBlurIterationFromTo(image, 0, width, width, height, size);
       for(j=1; j<height-1; j++)
       {
           for(k=1; k<width-1; k++)
@@ -423,6 +435,7 @@ void apply_blur_filter_once(pixel *image, int width, int height , int size, int 
   while ( threshold > 0 && !end ) ;
   // printf( "Nb iter for image %d\n", n_iter ) ;
   free (new) ;
+  transposeImage(image, height * width, height, width);
 }
 
 void apply_sobel_filter_once(pixel *image, int width, int height) {

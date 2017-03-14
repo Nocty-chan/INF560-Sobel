@@ -32,6 +32,14 @@ inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size
   }
 }
 
+inline void pixelToGreyArray(pixel *image, int *grey, int size) {
+  int j;
+  for (j = 0; j < size; j++) {
+    grey[j] = image[j].r;
+  }
+}
+
+
 //Fill in picture from grey array.
 /* Arguments:
  pixel *picture (output): output image.
@@ -375,4 +383,18 @@ inline int *receiveGrayImageInCommunicator(int width, int height, MPI_Comm image
     }
   }
   return grayReceive;
+}
+
+inline void transposeImage(pixel *image, int size, int width, int height) {
+  pixel *copyImage = (pixel *)malloc(size * sizeof(pixel));
+  copyImageIntoImage(image, copyImage, size);
+  int j,k;
+  for (j = 0; j < height; j++) {
+    for (k = 0; k < width; k++) {
+      image[CONV(k,j,height)].r = copyImage[CONV(j,k,width)].r;
+      image[CONV(k,j,height)].g = copyImage[CONV(j,k,width)].g;
+      image[CONV(k,j,height)].b = copyImage[CONV(j,k,width)].b;
+    }
+  }
+  free(copyImage);
 }
