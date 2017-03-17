@@ -360,10 +360,13 @@ pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
       realBeginIndex = numberOfCasesPerThread * threadNum + remaining;
       realEndIndex = numberOfCasesPerThread * (threadNum +1) + remaining;
     }
-    printf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
+    //printf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
     int j;
     for ( j = realBeginIndex ; j < realEndIndex ; j++ ) {
-      int moy ;
+    /*
+    int j;
+    for ( j = beginIndex ; j < endIndex ; j++ ) {*/
+       int moy ;
       // moy = p[i][j].r/4 + ( p[i][j].g * 3/4 ) ;
       moy = (oneImage[j].r + oneImage[j].g + oneImage[j].b)/3 ;
       if ( moy < 0 ) moy = 0 ;
