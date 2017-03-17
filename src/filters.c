@@ -74,13 +74,13 @@ void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int hei
   if (rankInGroup == 0) {
     transposeImage(picture, width * height, width, height);
   }
+  broadcastImageToCommunicator(picture, width * height, rankInGroup, imageCommunicator);
   /* Perform at least one blur iteration */
   do
   {
      //fprintf(stderr, "Iteration %d\n", n_iter);
       end = 1 ;
       n_iter++ ;
-      broadcastImageToCommunicator(picture, width * height, rankInGroup, imageCommunicator);
       //fprintf(stderr, "ONE BROadcast.\n");
       end = OneBlurIterationDistributedInCommunicator(picture, width, height, blurSize, threshold, imageCommunicator);
       //fprintf(stderr, "blur iteration done.\n");
@@ -116,19 +116,17 @@ int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int hei
   int *totalBlur = (int *)malloc (size * sizeof(int));
   int *recvCounts = malloc (sizeOfCommunicator * sizeof(int));
   int *displs = malloc(sizeOfCommunicator * sizeof(int));
-  if (rankInGroup == 0) {
-    for (i = 0; i < r; i++) {
-      recvCounts[i] = (coeff + 1) * height;
-      displs[i] = ((coeff + 1) * height) * i;
-      //fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n",i, recvCounts[i], displs[i]);
-    }
-    for (i = r; i < sizeOfCommunicator; i++) {
-      recvCounts[i] = coeff * height;
-      displs[i] = coeff * height * (i - r) + r * ((coeff + 1) * height);
-    //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
-    }
+  for (i = 0; i < r; i++) {
+    recvCounts[i] = (coeff + 1) * height;
+    displs[i] = ((coeff + 1) * height) * i;
+    //fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n",i, recvCounts[i], displs[i]);
   }
-  MPI_Gatherv(
+  for (i = r; i < sizeOfCommunicator; i++) {
+    recvCounts[i] = coeff * height;
+    displs[i] = coeff * height * (i - r) + r * ((coeff + 1) * height);
+   //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
+  }
+  MPI_Allgatherv(
      grayBlur,
      columnSize * height,
      MPI_INT,
@@ -136,26 +134,25 @@ int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int hei
      recvCounts,
      displs,
      MPI_INT,
-     0,
      imageCommunicator);
  free(displs);
  free(recvCounts);
 
  int end = 1;
- //Put total gray into picture.
  if (rankInGroup == 0) {
-   int j,k;
-   for(j=1; j<height-1; j++) {
-       for(k=1; k<width-1; k++) {
-           float diff;
-           diff = (totalBlur[CONV(j  ,k  ,width)] - picture[CONV(j  ,k  ,width)].r) ;
-           if ( diff > threshold || -diff > threshold) {
-               end = 0 ;
-           }
-       }
-   }
-   greyToPixel(picture, totalBlur, size);
+ int j,k;
+ for(j=1; j<height-1; j++) {
+     for(k=1; k<width-1; k++) {
+         float diff;
+         diff = (totalBlur[CONV(j  ,k  ,width)] - picture[CONV(j  ,k  ,width)].r) ;
+         if ( diff > threshold || -diff > threshold) {
+             end = 0 ;
+         }
+     }
  }
+ }
+ //Put total gray into picture.
+ greyToPixel(picture, totalBlur, size);
 
  MPI_Bcast(
    &end,

@@ -71,7 +71,7 @@ int main( int argc, char ** argv )
     //fprintf(stderr, "Process %d knows that there are %d images. \n", rankInWorld, numberOfImages);
     if (numberOfImages > totalProcesses) {
       if (rankInWorld == 0) {
-         fprintf(stderr, "Not enough processes, treating each image sequentially.\n");
+         fprintf(stderr, "Not enough processes for % images, treating each image sequentially for %d processes.\n", numberOfImages, totalProcesses);
       }
       int n;
       for (n = 0; n < numberOfImages; n++) {
