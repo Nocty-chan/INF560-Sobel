@@ -81,7 +81,6 @@ int main( int argc, char ** argv )
            picture = (pixel *)malloc(size * sizeof(pixel));
            copyImageIntoImage(image->p[n], picture, size);
          }
-
          applyFiltersDistributedInCommunicator(picture, 0, width, height, MPI_COMM_WORLD);
 
          if (rankInWorld == 0) {
@@ -90,7 +89,8 @@ int main( int argc, char ** argv )
          }
       }
   } else {
-    //Create communicators
+    //Create communicators. One communicator by image.
+    //Processes are evenly distributed between images.
     int k = totalProcesses / numberOfImages;
     int r = totalProcesses - k * numberOfImages;
     if (rankInWorld <= (r - 1) * (k + 1) + k) {
@@ -102,7 +102,7 @@ int main( int argc, char ** argv )
     MPI_Comm_rank(imageCommunicator, &rankInGroup);
     MPI_Comm_size(imageCommunicator, &groupSize);
     //fprintf(stderr, "Process  %d has been assigned to group %d with local rank %d. \n",rankInWorld, color, rankInGroup);
-    //Send image to the root of each group.
+    //Send image to the root of each communicator.
     int c;
     if (rankInWorld == 0) {
       width = image->width[0];
@@ -112,7 +112,6 @@ int main( int argc, char ** argv )
       copyImageIntoImage(image->p[0], picture, size);
       sendImagesToRootsOfImageCommunicator(image, k, r, numberOfImages);
     }
-    //Receive image from root.
     if (rankInGroup == 0 && rankInWorld != 0) {
       picture = receiveImageFromRoot(&width, &height, &size);
     }
@@ -122,7 +121,6 @@ int main( int argc, char ** argv )
 
     //Send results back to root.
     gatherAllImagesToRoot(picture, rankInGroup, size, image, r, k, numberOfImages);
-    free(picture);
     MPI_Comm_free(&imageCommunicator);
   }
    MPI_Barrier(MPI_COMM_WORLD);

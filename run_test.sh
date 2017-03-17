@@ -9,5 +9,6 @@ mkdir $OUTPUT_DIR 2>/dev/null
 for i in $INPUT_DIR/*gif ; do
     DEST=$OUTPUT_DIR/`basename $i .gif`-sobel.gif
     echo "Running test on $i -> $DEST"
-    srun -n $1 -N 5 ./sobelf $i $DEST
+    srun -n $1 ./sobelf $i $DEST
+
 done

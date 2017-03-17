@@ -1,22 +1,17 @@
-#ifndef __DISPATCH_UTIL__
-#define __DISPATCH_UTIL__
 #include <mpi.h>
 #include <unistd.h>
 #include <stdio.h>
-
+#define CONV(l,c,nb_c) \
+    (l)*(nb_c)+(c)
 /* ALL METHODS FOR COMMUNICATING WITH OTHER PROCESSES */
 
 
-
-// Fill in R,G, B components arrays from pixel image.
+//Copies image into another one.
 /* Arguments:
- pixel *image (input): image to be decomposed.
- int *red (output): red component of image.
- int *green (output): green component of image.
- int *blue (output): blue component of image.
- int size (input): size of image.
+pixel *srcImage (input): image to be copied.
+pixel *dstImage (output): destination image.
+int size (input): size of image
 */
-
 inline void copyImageIntoImage(pixel *srcImage, pixel *dstImage, int size) {
   int i;
   for (i = 0; i < size; i++) {
@@ -26,6 +21,14 @@ inline void copyImageIntoImage(pixel *srcImage, pixel *dstImage, int size) {
   }
 }
 
+// Fill in R, G, B components arrays from pixel image.
+/* Arguments:
+ pixel *image (input): image to be decomposed.
+ int *red (output): red component of image.
+ int *green (output): green component of image.
+ int *blue (output): blue component of image.
+ int size (input): size of image.
+*/
 inline void pixelToArray(pixel *image, int *red, int *green, int *blue, int size) {
   int j;
   for (j = 0; j < size; j++) {
@@ -110,7 +113,6 @@ inline void receiveWidthAndHeightFromProcess(int *width, int *height, int src) {
   pixel *picture (output): received image
   int src (input): ID of the source process
 */
-
 inline void receiveImageFromProcess(int size, pixel *picture, int src) {
   MPI_Status status;
   int *red, *blue, *green;
@@ -138,7 +140,6 @@ inline void receiveImageFromProcess(int size, pixel *picture, int src) {
 * int tag (input): tag of the communication
 * int size (input): size of image
 */
-
 inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int tag, int size) {
   MPI_Status status;
   int *grey = malloc(size * sizeof (int));
@@ -159,7 +160,6 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
 * int k (input): number of processes that process one image
 * int numberOfImages (input): number of images that need to be gathered
 */
-
 inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r, int k, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
@@ -190,14 +190,20 @@ int size: size of image
 int rankInGroup: rank of the calling process in the communicator
 MPI_Comm imageCommunicator: communicator in which image has to be broadcasted
 */
-
 inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGroup, MPI_Comm imageCommunicator) {
   int *red = malloc(size * sizeof (int));
   int *blue = malloc(size * sizeof (int));
   int *green = malloc(size * sizeof (int));
   if (rankInGroup == 0) {
     pixelToArray(picture, red, green, blue, size);
+    int i;
+  /*  for (i = 0; i < size; i++) {
+      fprintf(stderr, "Red %d: %d\n", i, red[i]);
+      fprintf(stderr, "Blue %d: %d\n", i, blue[i]);
+      fprintf(stderr, "Green %d: %d\n", i, green[i]);
+    }*/
   }
+
   MPI_Bcast(red, size, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(blue, size, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(green, size, MPI_INT, 0, imageCommunicator);
@@ -222,7 +228,6 @@ inline void broadcastImageToCommunicator(pixel *picture, int size, int rankInGro
   int remainingSize (input): number of processes which hold a part with a larger size.
   MPI_Comm immageCommunicator (input): communicator
 */
-
 inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     int *grayResult,
     int *graySend,
@@ -252,10 +257,7 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
     }
   }
-  if (grayResult == NULL || graySend == NULL) {
-  fprintf(stderr, "Process %d, graySend %p grayResult %p",  rankInGroup, graySend, grayResult); 
-  MPI_Abort(MPI_COMM_WORLD, 1); 
-}
+
   MPI_Gatherv(
      graySend,
      actualSize,
@@ -270,6 +272,13 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
  free(recvCounts);
 }
 
+/* Scatter images of the gif to the roots of the communicator.
+* Arguments:
+* animated_gif *image (input): gif to be scattered.
+* int k (input): number of processes assigned to one image.
+* int r (input): number of images that are assigned to k + 1 processes.
+* int numberOfImages (input): number of images in a gif.
+*/
 inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int k, int r, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
@@ -291,6 +300,13 @@ inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int k, int
   }
 }
 
+/* Receives an image from root
+* Arguments:
+* int *width (output): width of the received image.
+* int *height (output): height of the received image.
+* int *size (output): size of the received image.
+* Returns pixel* which is the image received by the process.
+*/
 inline pixel *receiveImageFromRoot(int *width, int *height, int *size) {
   receiveWidthAndHeightFromProcess(width, height, 0);
   *size = (*width) * (*height);
@@ -300,6 +316,16 @@ inline pixel *receiveImageFromRoot(int *width, int *height, int *size) {
   return picture;
 }
 
+/* Gathers all images to root in a single gif.
+* Arguments:
+* pixel *picture(input): image to be sent to root.
+* int rankInGroup(input): rank of the process in an image communicator.
+* int size (input): size of the image to be sent.
+* animated_gif *image (output): gif that will gather all images.
+* int r (input): number of images that have k + 1 processes.
+* int k (input): number of processed for one image.
+* int numberOfImages(input): number of images in a gif.
+*/
 inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, animated_gif *image, int r, int k, int numberOfImages) {
   int rankInWorld;
   MPI_Comm_rank(MPI_COMM_WORLD, &rankInWorld);
@@ -312,4 +338,23 @@ inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, ani
   }
 }
 
-#endif
+/* Transposes an image
+* Arguments:
+* pixel *image(input/output): transposed image.
+* int size: size of image.
+* int width: width of image.
+* int height: height of image.
+*/
+inline void transposeImage(pixel *image, int size, int width, int height) {
+  pixel *copyImage = (pixel *)malloc(size * sizeof(pixel));
+  copyImageIntoImage(image, copyImage, size);
+  int j,k;
+  for (j = 0; j < height; j++) {
+    for (k = 0; k < width; k++) {
+      image[CONV(k,j,height)].r = copyImage[CONV(j,k,width)].r;
+      image[CONV(k,j,height)].g = copyImage[CONV(j,k,width)].g;
+      image[CONV(k,j,height)].b = copyImage[CONV(j,k,width)].b;
+    }
+  }
+  free(copyImage);
+}
