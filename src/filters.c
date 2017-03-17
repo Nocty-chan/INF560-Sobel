@@ -1,6 +1,7 @@
 #include "filters.h"
 #include <unistd.h>
 #include <sys/time.h>
+#include <omp.h>
 //#include "dispatch_util.h"
 #include <math.h>
 #define CONV(l,c,nb_c) \
@@ -234,8 +235,6 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
     grayArray[i] = grayChunk[i].g;
   }
 
-  free(grayChunk);
-  grayChunk = NULL;
   //fprintf(stderr, "Copied into array of int on process %d of group %d\n", rankInGroup, color);
   free(grayChunk);
   //Gather processedChunk to root.
@@ -341,10 +340,29 @@ pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_C
 }
 
 pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
-  int j;
   pixel *gray = (pixel *)malloc((endIndex - beginIndex) * sizeof(pixel));
-  for ( j = beginIndex ; j < endIndex ; j++ )
+  #pragma omp parallel 
   {
+    int threadNum, totalThreads;
+    threadNum = omp_get_thread_num();
+    totalThreads = omp_get_num_threads();
+    int totalCases, quotient, remaining, numberOfCasesPerThread;
+    totalCases = endIndex - beginIndex;
+    quotient = totalCases / totalThreads;
+    remaining = totalCases - quotient * totalThreads; 
+    int realBeginIndex, realEndIndex;
+    if (threadNum < remaining) {
+      numberOfCasesPerThread = quotient + 1;
+      realBeginIndex = numberOfCasesPerThread * threadNum;
+      realEndIndex = numberOfCasesPerThread * (threadNum +1);
+    } else {
+      numberOfCasesPerThread = quotient;
+      realBeginIndex = numberOfCasesPerThread * threadNum + remaining;
+      realEndIndex = numberOfCasesPerThread * (threadNum +1) + remaining;
+    }
+    printf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
+    int j;
+    for ( j = realBeginIndex ; j < realEndIndex ; j++ ) {
       int moy ;
       // moy = p[i][j].r/4 + ( p[i][j].g * 3/4 ) ;
       moy = (oneImage[j].r + oneImage[j].g + oneImage[j].b)/3 ;
@@ -354,6 +372,7 @@ pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
       gray[j - beginIndex].r = moy ;
       gray[j - beginIndex].g = moy ;
       gray[j - beginIndex].b = moy ;
+    }
   }
   return gray;
 }
