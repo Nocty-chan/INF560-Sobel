@@ -1,4 +1,6 @@
 #include "filters.h"
+#include <unistd.h>
+#include <sys/time.h>
 //#include "dispatch_util.h"
 #include <math.h>
 #define CONV(l,c,nb_c) \
@@ -6,10 +8,12 @@
 
 void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width, int height, MPI_Comm imageCommunicator) {
   int size, rankInGroup, sizeOfCommunicator;
+  struct timeval t1, t2;
+  double duration;
   MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
   MPI_Comm_size(imageCommunicator, &sizeOfCommunicator);
-	printf("Gray Filter successfully applied.\n");
+  //fprintf(stderr, "Gray Filter successfully applied.\n");
   size = width * height;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
 
@@ -19,20 +23,46 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   }
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
   //Applying Gray Filter
+  if (rankInGroup == 0) {
+    gettimeofday(&t1, NULL);
+  }
   applyGrayFilterDistributedInCommunicator(picture, size, imageCommunicator);
-  printf("Gray Filter successfully applied.\n");
-  applyBlurFilterDistributedInCommunicator(picture, width, height, 5, 20, imageCommunicator);
+  if (rankInGroup == 0) {
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf("Gray filter was applied in %lf seconds. \n", duration);
+  }
 
-  fprintf(stderr, "Sobel filter\n");
+  if (rankInGroup == 0) {
+    gettimeofday(&t1, NULL);
+  }
+  //printf("Gray Filter successfully applied.\n");
+  applyBlurFilterDistributedInCommunicator(picture, width, height, 5, 20, imageCommunicator);
+  
+  if (rankInGroup == 0) {
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf("Blur filter was applied in %lf seconds. \n", duration);
+  }
+  //fprintf(stderr, "Sobel filter\n");
   //Apply Sobel filter.
+  
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
   //fprintf(stderr, "Broadcast\n");
+  if (rankInGroup == 0) {
+    gettimeofday(&t1, NULL);
+  }
    applySobelFilterDistributedInCommunicator(
     picture,
     color,
     width,
     height,
     imageCommunicator);
+  if (rankInGroup == 0) {
+    gettimeofday(&t2, NULL);
+    duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
+    printf("Sobel filter was applied in %lf seconds. \n", duration);
+  }
 }
 
 void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int height, int blurSize, int threshold, MPI_Comm imageCommunicator) {
@@ -40,25 +70,23 @@ void applyBlurFilterDistributedInCommunicator(pixel *picture, int width, int hei
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
   int end = 0 ;
   int n_iter = 0 ;
-  pixel *new;
   int j,k;
   if (rankInGroup == 0) {
-  //  fprintf(stderr, "Iteration %d\n", n_iter);
     transposeImage(picture, width * height, width, height);
   }
   /* Perform at least one blur iteration */
-  //fprintf(stderr, "Preparing iteration\n");
   do
   {
+     //fprintf(stderr, "Iteration %d\n", n_iter);
       end = 1 ;
       n_iter++ ;
       broadcastImageToCommunicator(picture, width * height, rankInGroup, imageCommunicator);
+      //fprintf(stderr, "ONE BROadcast.\n");
       end = OneBlurIterationDistributedInCommunicator(picture, width, height, blurSize, threshold, imageCommunicator);
-  //      fprintf(stderr, "End: %d \n", end);
+      //fprintf(stderr, "blur iteration done.\n");
   }
   while ( threshold > 0 && !end ) ;
-//  printf( "Nb iter for image %d\n", n_iter ) ;
-  free (new) ;
+  //printf( "Nb iter for image\n") ;
   if (rankInGroup == 0) {
     transposeImage(picture, width * height, height, width);
   }
@@ -166,11 +194,9 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
   }
   free(sobelChunk);
 
-  free(sobelChunk);
-
   //Gather processedChunk to root.
    int *totalGray = (int *)malloc (size * sizeof(int));
-   fprintf(stderr, "Size: %d and totalgray %p \n.", size, totalGray);
+   //fprintf(stderr, "Size: %d and totalgray %p \n.", size, totalGray);
    gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      totalGray,
      grayArray,

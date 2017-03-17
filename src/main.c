@@ -45,6 +45,7 @@ int main( int argc, char ** argv )
     if (rankInWorld == 0) {
       input_filename = argv[1] ;
       output_filename = argv[2] ;
+      fprintf(stderr, "Treating file %s\n", input_filename);
       /* IMPORT Timer start */
       gettimeofday(&t1, NULL);
       /* Load file and store the pixels in array */
