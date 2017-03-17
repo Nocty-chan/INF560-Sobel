@@ -1,7 +1,7 @@
 #include "filters.h"
 #include <unistd.h>
 #include <sys/time.h>
-//#include "dispatch_util.h"
+#include "dispatch_util.h"
 #include <math.h>
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
@@ -38,7 +38,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   }
   //printf("Gray Filter successfully applied.\n");
   applyBlurFilterDistributedInCommunicator(picture, width, height, 5, 20, imageCommunicator);
-  
+
   if (rankInGroup == 0) {
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
@@ -46,7 +46,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   }
   //fprintf(stderr, "Sobel filter\n");
   //Apply Sobel filter.
-  
+
   broadcastImageToCommunicator(picture, size, rankInGroup, imageCommunicator);
   //fprintf(stderr, "Broadcast\n");
   if (rankInGroup == 0) {
@@ -210,7 +210,7 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
 }
 
 void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm imageCommunicator) {
-  int groupSize, rankInGroup;  
+  int groupSize, rankInGroup;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
   MPI_Comm_size(imageCommunicator, &groupSize);
   //Determine chunksizes for Gray Filter
