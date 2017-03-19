@@ -162,15 +162,15 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
 * int k (input): number of processes that process one image
 * int numberOfImages (input): number of images that need to be gathered
 */
-inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r, int k, int numberOfImages) {
+inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int from, int r, int k, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
     //fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
     receiveGreyImageFromProcessWithTagAndSize(
-      image->p[c],
+      image->p[from + c],
       c * (k + 1),
       c * (k + 1),
-      image->width[c] * image->height[c]);
+      image->width[from + c] * image->height[from + c]);
 
   }
 
@@ -178,10 +178,10 @@ inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r,
     if (c == 0) continue;
     //fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
     receiveGreyImageFromProcessWithTagAndSize(
-      image->p[c],
+      image->p[from + c],
       c * k + r,
       c * k + r,
-      image->width[c] * image->height[c]);
+      image->width[from + c] * image->height[from + c]);
   }
 }
 
@@ -289,23 +289,23 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
 * int r (input): number of images that are assigned to k + 1 processes.
 * int numberOfImages (input): number of images in a gif.
 */
-inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int k, int r, int numberOfImages) {
+inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int from, int k, int r, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
     //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
     sendImageToProcess(
-      image->width[c],
-      image->height[c],
-      image->p[c],
+      image->width[from + c],
+      image->height[from + c],
+      image->p[from + c],
       c * (k + 1));
   }
   for (c = r; c < numberOfImages; c++) {
     if (c == 0) continue;
     //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
     sendImageToProcess(
-      image->width[c],
-      image->height[c],
-      image->p[c],
+      image->width[from + c],
+      image->height[from + c],
+      image->p[from + c],
       c * k + r);
   }
 }
@@ -336,15 +336,15 @@ inline pixel *receiveImageFromRoot(int *width, int *height, int *size) {
 * int k (input): number of processed for one image.
 * int numberOfImages(input): number of images in a gif.
 */
-inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, animated_gif *image, int r, int k, int numberOfImages) {
+inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, animated_gif *image, int from, int r, int k, int numberOfImages) {
   int rankInWorld;
   MPI_Comm_rank(MPI_COMM_WORLD, &rankInWorld);
   if (rankInGroup == 0 && rankInWorld != 0) {
     sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, size);
   }
   if (rankInWorld == 0) {
-    copyImageIntoImage(picture, image->p[0], size);
-    receiveGreyImageFromAllProcessesWithSize(image, r, k, numberOfImages);
+    copyImageIntoImage(picture, image->p[from], size);
+    receiveGreyImageFromAllProcessesWithSize(image, from, r, k, numberOfImages);
   }
 }
 
