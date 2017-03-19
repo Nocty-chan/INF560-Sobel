@@ -63,10 +63,12 @@ void applyBlurFilterDistributedInCommunicator(int *pixels, int width, int height
   int end = 0 ;
   int n_iter = 0 ;
   int j,k;
+
   //fprintf(stderr, "applying blur filter. \n");
    if (rankInGroup == 0) {
    transposePixelArray(pixels, width*height, width, height);
   }
+
   //fprintf(stderr, "transposed pixel array in process %d \n", rankInGroup);
   MPI_Bcast(pixels, width * height, MPI_INT, 0, imageCommunicator);
   /* Perform at least one blur iteration */
@@ -100,6 +102,7 @@ int OneBlurIterationDistributedInCommunicator(int *pixels, int width, int height
     columnSize += 1;
   }
   //fprintf(stderr, "On process %d: columnSize : %d / %d\n", rankInGroup, columnSize, width);
+
   int *blurChunk = oneBlurIterationOnOneProcess(pixels, width, height, imageCommunicator);
   int *totalBlur = (int *)malloc (size * sizeof(int));
   if(totalBlur == NULL) {
@@ -116,7 +119,7 @@ int OneBlurIterationDistributedInCommunicator(int *pixels, int width, int height
   for (i = r; i < sizeOfCommunicator; i++) {
     recvCounts[i] = coeff * height;
     displs[i] = coeff * height * (i - r) + r * ((coeff + 1) * height);
-   //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
+     //fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
   }
   MPI_Allgatherv(
      blurChunk,
@@ -144,7 +147,7 @@ int OneBlurIterationDistributedInCommunicator(int *pixels, int width, int height
  }
  }
  for (i = 0 ; i < size; i++) {
-   pixels[i] = totalBlur[i];
+   pixels[i] = totalBlur[i];	
  }
 free(totalBlur); 
  MPI_Bcast(
@@ -287,6 +290,7 @@ int *oneBlurIterationOnOneProcess(int *pixels, int width, int height, MPI_Comm i
     endColumn = (rankInGroup + 1) * coeff + r;
   }
   //fprintf(stderr, "On process %d beginColumn : %d , endColumn : %d \n",rankInGroup, beginColumn, endColumn);
+
   return oneBlurIterationFromTo(pixels, beginColumn, endColumn, width, height, 5);
 }
 
