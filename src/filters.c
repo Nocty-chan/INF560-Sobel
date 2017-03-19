@@ -14,7 +14,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   MPI_Bcast(&width, 1, MPI_INT, 0, imageCommunicator);
   MPI_Bcast(&height, 1, MPI_INT, 0, imageCommunicator);
   MPI_Comm_size(imageCommunicator, &sizeOfCommunicator);
-  //fprintf(stderr, "Gray Filter successfully applied.\n");
+  //fprintf(stderr, "Broadcast successful.\n");
   size = width * height;
   MPI_Comm_rank(imageCommunicator, &rankInGroup);
 
@@ -108,6 +108,9 @@ int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int hei
   //fprintf(stderr, "On process %d: columnSize : %d / %d\n", rankInGroup, columnSize, width);
   pixel *blurChunk = oneBlurIterationOnOneProcess(picture, width, height, imageCommunicator);
   int *grayBlur = (int *)malloc(columnSize * height * sizeof(int));
+ if(grayBlur == NULL) {
+    fprintf(stderr, "Gray blur null.");
+  }
   int i;
   for (i = 0; i < columnSize * height; i++) {
     grayBlur[i] = blurChunk[i].g;
@@ -115,6 +118,9 @@ int OneBlurIterationDistributedInCommunicator(pixel *picture, int width, int hei
   free(blurChunk);
 
   int *totalBlur = (int *)malloc (size * sizeof(int));
+  if(totalBlur == NULL) {
+    fprintf(stderr, "Total Blur null.");
+  }
   int *recvCounts = malloc (sizeOfCommunicator * sizeof(int));
   int *displs = malloc(sizeOfCommunicator * sizeof(int));
   for (i = 0; i < r; i++) {
@@ -186,7 +192,9 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
 
   //Convert processedChunk into int array.
   int *grayArray = (int *)malloc(sizeOfChunk * sizeof(int));
-
+  if(grayArray == NULL) {
+    fprintf(stderr, "gray Array null.");
+  }
   for (i = 0; i < sizeOfChunk; i++) {
     grayArray[i] = sobelChunk[i].g;
   }
@@ -194,6 +202,9 @@ void applySobelFilterDistributedInCommunicator(pixel *picture, int color, int wi
 
   //Gather processedChunk to root.
    int *totalGray = (int *)malloc (size * sizeof(int));
+   if(totalGray == NULL) {
+    fprintf(stderr, "totalGray null.");
+  }
    //fprintf(stderr, "Size: %d and totalgray %p \n.", size, totalGray);
    gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      totalGray,
@@ -224,12 +235,15 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
     sizeOfChunkForGrayFilter = chunksizeForGrayFilter;
   }
   //fprintf(stderr, "Chunksize %d, remaining %d\n", chunksizeForGrayFilter, remainingChunkForGrayFilter);
-  //fprintf(stderr, "On process %d of group %d of size %d, sizeOfChunkForGrayFilter is %d out of %d.\n", rankInGroup, color, groupSize, sizeOfChunkForGrayFilter, size);
+  //fprintf(stderr, "On process %d of size %d, sizeOfChunkForGrayFilter is %d out of %d.\n", rankInGroup, groupSize, sizeOfChunkForGrayFilter, size);
   //Apply gray filter
   pixel *grayChunk = applyGrayFilterOnOneProcess(picture, size, imageCommunicator);
-  //fprintf(stderr, "Applied gray filter on process %d of group %d\n", rankInGroup, color);
+  //fprintf(stderr, "Applied gray filter on process %d\n", rankInGroup);
   //Convert processedChunk into int array.
   int *grayArray = (int *)malloc(sizeOfChunkForGrayFilter * sizeof(int));
+   if(grayArray == NULL) {
+    fprintf(stderr, "gray Array null.");
+  }
   int i;
   for (i = 0; i < sizeOfChunkForGrayFilter; i++) {
     grayArray[i] = grayChunk[i].g;
@@ -240,6 +254,9 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
   //Gather processedChunk to root.
 
    int *totalGray = (int *)malloc (size * sizeof(int));
+   if(totalGray == NULL) {
+    fprintf(stderr, "totalGray null.");
+  }
 
    gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      totalGray,
@@ -247,11 +264,12 @@ void applyGrayFilterDistributedInCommunicator(pixel *picture, int size, MPI_Comm
      chunksizeForGrayFilter,
      remainingChunkForGrayFilter,
      imageCommunicator);
-  //fprintf(stderr, "Gathered array of int on process %d of group %d\n", rankInGroup, color);
+  //fprintf(stderr, "Gathered array of int on process %d\n", rankInGroup);
   //Put total gray into picture.
   if (rankInGroup == 0) {
     greyToPixel(picture, totalGray, size);
   }
+  //fprintf(stderr, "Gathered  %d\n", rankInGroup);
   free(grayArray);
   free(totalGray);
 }
@@ -341,7 +359,7 @@ pixel *applySobelFilterOnOneProcess(pixel *picture, int width, int height, MPI_C
 
 pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
   pixel *gray = (pixel *)malloc((endIndex - beginIndex) * sizeof(pixel));
-  #pragma omp parallel 
+  /*#pragma omp parallel shared(gray)
   {
     int threadNum, totalThreads;
     threadNum = omp_get_thread_num();
@@ -363,9 +381,9 @@ pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
     //printf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
     int j;
     for ( j = realBeginIndex ; j < realEndIndex ; j++ ) {
-    /*
+    */
     int j;
-    for ( j = beginIndex ; j < endIndex ; j++ ) {*/
+    for ( j = beginIndex ; j < endIndex ; j++ ) {
        int moy ;
       // moy = p[i][j].r/4 + ( p[i][j].g * 3/4 ) ;
       moy = (oneImage[j].r + oneImage[j].g + oneImage[j].b)/3 ;
@@ -376,15 +394,16 @@ pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
       gray[j - beginIndex].g = moy ;
       gray[j - beginIndex].b = moy ;
     }
-  }
+  //}
   return gray;
 }
 
-//pixel *applyBlurFilterFromTo(pixel* oneImage, int width, int height, int beginIndex, int endIndex, int blurSize, int threshold) {}
-
 pixel *applySobelFilterFromTo(pixel *image, int width, int height, int beginIndex, int endIndex) {
   int i, j, k;
-  pixel *sobel = (pixel *)malloc((endIndex - beginIndex)* sizeof(pixel)) ;
+  pixel *sobel = (pixel *)malloc((endIndex - beginIndex)* sizeof(pixel));
+  if(sobel == NULL) {
+    fprintf(stderr, "Sobel null.");
+  }
   for(i = beginIndex; i < endIndex; i++) {
     j = i / width;
     k = i % width;
@@ -435,6 +454,9 @@ pixel *applySobelFilterFromTo(pixel *image, int width, int height, int beginInde
 
 pixel *oneBlurIterationFromTo(pixel *picture, int beginColumn, int endColumn, int width, int height, int size) {
   pixel *new = (pixel *)malloc((endColumn - beginColumn)* height * sizeof(pixel));
+ if(new == NULL) {
+    fprintf(stderr, "New for blur null.");
+  }
   int beginIndex, endIndex;
   beginIndex = beginColumn * height;
   endIndex = (endColumn + 1) * height;

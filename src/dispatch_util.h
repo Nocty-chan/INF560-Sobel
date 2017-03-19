@@ -244,7 +244,7 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     actualSize = chunkSize;
   }
   int *recvCounts = malloc (groupSize * sizeof(int));
-  int *displs = malloc(groupSize * sizeof(int));
+  int *displs = malloc (groupSize * sizeof(int));
   if (rankInGroup == 0) {
     for (i = 0; i < remainingSize; i++) {
       recvCounts[i] = chunkSize + 1;
@@ -257,7 +257,11 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
     }
   }
-
+  /*fprintf(stderr, "displacements and counts\n");
+  fprintf(stderr, "graySend : %p.\n", graySend);
+  fprintf(stderr, "grayResult : %p.\n", grayResult);
+  fprintf(stderr, "recvCounts : %p.\n", recvCounts);
+  fprintf(stderr, "displs : %p.\n", displs);*/
   MPI_Gatherv(
      graySend,
      actualSize,
@@ -268,8 +272,12 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      MPI_INT,
      0,
      imageCommunicator);
- free(displs);
- free(recvCounts);
+ //fprintf(stderr, "Gathered \n");
+ if (rankInGroup == 0) {
+   free(displs);
+   free(recvCounts);
+ }
+ 
 }
 
 /* Scatter images of the gif to the roots of the communicator.

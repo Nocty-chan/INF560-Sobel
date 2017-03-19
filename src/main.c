@@ -33,6 +33,9 @@ int main( int argc, char ** argv )
     /* Information for image processed by communicator */
     int width, height, size;
     pixel *picture;
+
+    //int safeThreadMode;
+    //MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &safeThreadMode);
     MPI_Init(&argc, &argv);
     if ( argc < 3 )
     {
@@ -42,7 +45,6 @@ int main( int argc, char ** argv )
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rankInWorld);
     MPI_Comm_size(MPI_COMM_WORLD, &totalProcesses);
-    fprintf(stderr, "%d processes.\n", totalProcesses);
     if (rankInWorld == 0) {
       input_filename = argv[1] ;
       output_filename = argv[2] ;
@@ -57,7 +59,7 @@ int main( int argc, char ** argv )
       gettimeofday(&t2, NULL);
 
     duration = (t2.tv_sec -t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-     printf( "GIF loaded from file %s with %d image(s) in %lf s\n",
+     fprintf( stderr,"GIF loaded from file %s with %d image(s) in %lf s\n",
               input_filename, image->n_images, duration ) ;
       numberOfImages = image->n_images;
       width = image->width[0];
