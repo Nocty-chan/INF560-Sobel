@@ -464,15 +464,31 @@ return new;
 }
 
 void greyFilter(pixel* image, int width, int height, int* pixels) {
-	int j, k;
-	for (j = 0; j < height; j++) {
-		for (k = 0; k < width; k++) {
-			pixels[CONV(j, k, width)] = 
-				(image[CONV(j, k, width)].r + 
-				image[CONV(j, k, width)].g + 
-				image[CONV(j, k, width)].b) /3;
-		}
-	}
+	#pragma omp parallel
+	{
+	int threadNum, totalThreads;
+    	threadNum = omp_get_thread_num();
+    	totalThreads = omp_get_num_threads();
+    	int totalCases, quotient, remaining, numberOfCasesPerThread;
+    	totalCases = width * height - 0;
+    	quotient = totalCases / totalThreads;
+    	remaining = totalCases - quotient * totalThreads; 
+    	int realBeginIndex, realEndIndex;
+    	if (threadNum < remaining) {
+      	numberOfCasesPerThread = quotient + 1;
+      	realBeginIndex = numberOfCasesPerThread * threadNum;
+      	realEndIndex = numberOfCasesPerThread * (threadNum +1);
+    	} else {
+      	numberOfCasesPerThread = quotient;
+      	realBeginIndex = numberOfCasesPerThread * threadNum + remaining;
+      	realEndIndex = numberOfCasesPerThread * (threadNum +1) + remaining;
+    	}
+    	//printf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
+    int j;
+    for ( j = realBeginIndex ; j < realEndIndex ; j++ ) {
+	pixels[j] =(image[j].r +image[j].g + image[j].b) /3;
+    }
+   } 
 }
 
 void apply_gray_filter_once(pixel *image, int size) {
