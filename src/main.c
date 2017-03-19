@@ -3,16 +3,13 @@
  *
  * Image Filtering Project
  */
-#pragma once
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include <gif_lib.h>
 #include <mpi.h>
 #include "filters.h"
-#include <mpi.h>
 #include <unistd.h>
-#include "dispatch_util.h"
+//#include "dispatch_util.h"
 
 int main( int argc, char ** argv )
 {
