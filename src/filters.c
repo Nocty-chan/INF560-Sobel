@@ -130,9 +130,9 @@ int OneBlurIterationDistributedInCommunicator(int *pixels, int width, int height
      displs,
      MPI_INT,
      imageCommunicator);
+
  free(displs);
  free(recvCounts);
-
  int end = 1;
  if (rankInGroup == 0) {
  int j,k;
@@ -328,29 +328,6 @@ int *applySobelFilterOnOneProcess(int *pixels, int width, int height, MPI_Comm i
 
 pixel *applyGrayFilterFromTo(pixel *oneImage, int beginIndex, int endIndex) {
   pixel *gray = (pixel *)malloc((endIndex - beginIndex) * sizeof(pixel));
-  /*#pragma omp parallel shared(gray)
-  {
-    int threadNum, totalThreads;
-    threadNum = omp_get_thread_num();
-    totalThreads = omp_get_num_threads();
-    int totalCases, quotient, remaining, numberOfCasesPerThread;
-    totalCases = endIndex - beginIndex;
-    quotient = totalCases / totalThreads;
-    remaining = totalCases - quotient * totalThreads; 
-    int realBeginIndex, realEndIndex;
-    if (threadNum < remaining) {
-      numberOfCasesPerThread = quotient + 1;
-      realBeginIndex = numberOfCasesPerThread * threadNum;
-      realEndIndex = numberOfCasesPerThread * (threadNum +1);
-    } else {
-      numberOfCasesPerThread = quotient;
-      realBeginIndex = numberOfCasesPerThread * threadNum + remaining;
-      realEndIndex = numberOfCasesPerThread * (threadNum +1) + remaining;
-    }
-    //printf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
-    int j;
-    for ( j = realBeginIndex ; j < realEndIndex ; j++ ) {
-    */
     int j;
     for ( j = beginIndex ; j < endIndex ; j++ ) {
        int moy ;
@@ -421,37 +398,19 @@ int *oneBlurIterationFromTo(int *pixels, int beginColumn, int endColumn, int wid
   endIndex = (endColumn + 1) * height;
   int k,j;
 
-  //fprintf(stderr, "Copied picture into new.\n");
+  //fprintf(stderr, "OneBlurIterationFromTo :Copied picture into new.\n");
   for (k = beginColumn; k < endColumn; k++) {
     for (j = 0; j < height; j++) {
       new[CONV(k,j,height) - beginIndex] = pixels[CONV(k,j,height)];
     }
   }
+ #pragma omp parallel private(k,j)
+ {
   beginColumn = (beginColumn > size) ? beginColumn : size;
   endColumn = (endColumn < width - size) ? endColumn : width - size;
- #pragma omp parallel 
- {
-        int threadNum, totalThreads;
-    	threadNum = omp_get_thread_num();
-    	totalThreads = omp_get_num_threads();
-    	int totalColumns, quotient, remaining, numberOfCasesPerThread;
-    	totalColumns= beginColumn - endColumn;
-    	quotient = totalColumns/ totalThreads;
-    	remaining = totalColumns - quotient * totalThreads; 
-    	int realBeginIndex, realEndIndex;
-    	if (threadNum < remaining) {
-      	numberOfCasesPerThread = quotient + 1;
-      	realBeginIndex = numberOfCasesPerThread * threadNum;
-      	realEndIndex = numberOfCasesPerThread * (threadNum +1);
-    	} else {
-      	numberOfCasesPerThread = quotient;
-      	realBeginIndex = numberOfCasesPerThread * threadNum + remaining;
-      	realEndIndex = numberOfCasesPerThread * (threadNum +1) + remaining;
-    	}
-	fprintf("Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
-   for(k=realBeginIndex; k<realEndIndex; k++)
-  //for(k=beginColumn; k<endColumn; k++)
-	{
+  #pragma omp for schedule(dynamic) 
+   //for(k=realBeginIndex; k<realEndIndex; k++)
+  for(k=beginColumn; k<endColumn; k++) {
     for(j=size; j<height/10-size; j++)
       {
           int stencil_j, stencil_k ;
@@ -492,26 +451,9 @@ return new;
 void greyFilter(pixel* image, int width, int height, int* pixels) {
 	#pragma omp parallel
 	{
-	int threadNum, totalThreads;
-    	threadNum = omp_get_thread_num();
-    	totalThreads = omp_get_num_threads();
-    	int totalCases, quotient, remaining, numberOfCasesPerThread;
-    	totalCases = width * height - 0;
-    	quotient = totalCases / totalThreads;
-    	remaining = totalCases - quotient * totalThreads; 
-    	int realBeginIndex, realEndIndex;
-    	if (threadNum < remaining) {
-      	numberOfCasesPerThread = quotient + 1;
-      	realBeginIndex = numberOfCasesPerThread * threadNum;
-      	realEndIndex = numberOfCasesPerThread * (threadNum +1);
-    	} else {
-      	numberOfCasesPerThread = quotient;
-      	realBeginIndex = numberOfCasesPerThread * threadNum + remaining;
-      	realEndIndex = numberOfCasesPerThread * (threadNum +1) + remaining;
-    	}
-    	fprintf(stderr, "Thread number %d / %d goes from %d to %d\n",threadNum, totalThreads, realBeginIndex, realEndIndex);
-    int j;
-    for ( j = realBeginIndex ; j < realEndIndex ; j++ ) {
+	int j;
+	#pragma omp for schedule(dynamic)
+    for ( j = 0 ; j < width * height ; j++ ) {
 	pixels[j] =(image[j].r +image[j].g + image[j].b) /3;
     }
    } 
