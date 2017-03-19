@@ -146,9 +146,13 @@ int OneBlurIterationDistributedInCommunicator(int *pixels, int width, int height
      }
  }
  }
+#pragma omp parallel private(i)
+ {
+#pragma omp for schedule(static)
  for (i = 0 ; i < size; i++) {
    pixels[i] = totalBlur[i];	
  }
+}
 free(totalBlur); 
  MPI_Bcast(
    &end,
@@ -350,6 +354,9 @@ int *applySobelFilterFromTo(int *pixels, int width, int height, int beginIndex, 
   if(sobel == NULL) {
     fprintf(stderr, "Sobel null.");
   }
+  #pragma omp parallel private(i,j,k)
+  {
+   #pragma omp for schedule(dynamic)
   for(i = beginIndex; i < endIndex; i++) {
     j = i / width;
     k = i % width;
@@ -388,6 +395,7 @@ int *applySobelFilterFromTo(int *pixels, int width, int height, int beginIndex, 
       sobel[CONV(j  ,k  ,width)-beginIndex] = pixels[CONV(j  ,k  ,width)] ;
     }
   }
+ }
   return sobel;
 }
 
