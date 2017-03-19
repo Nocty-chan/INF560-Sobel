@@ -385,4 +385,5 @@ inline void transposePixelArray(int *pixels, int size, int width, int height) {
 	}
 	free(copyImage);
 }
+
 #endif
