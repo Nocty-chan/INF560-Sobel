@@ -1,10 +1,12 @@
+#ifndef DISPATCH
+#define DISPATCH
+
 #include <mpi.h>
 #include <unistd.h>
 #include <stdio.h>
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 /* ALL METHODS FOR COMMUNICATING WITH OTHER PROCESSES */
-
 
 //Copies image into another one.
 /* Arguments:
@@ -366,3 +368,21 @@ inline void transposeImage(pixel *image, int size, int width, int height) {
   }
   free(copyImage);
 }
+
+/* Transposes array of int*/
+
+inline void transposePixelArray(int *pixels, int size, int width, int height) {
+	int *copyImage = (int *)malloc(size * sizeof(int));
+	int i;
+	for (i = 0; i < size; i++) {
+		copyImage[i] = pixels[i];
+	}
+	int j, k;
+	for (j = 0; j < height; j++) {
+		for (k = 0; k < width; k++) {
+			pixels[k * height + j] = copyImage[j * width + k];
+		}
+	}
+	free(copyImage);
+}
+#endif
