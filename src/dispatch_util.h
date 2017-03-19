@@ -3,6 +3,7 @@
 
 #include <mpi.h>
 #include <unistd.h>
+#include<omp.h>
 #include <stdio.h>
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
@@ -373,16 +374,20 @@ inline void transposeImage(pixel *image, int size, int width, int height) {
 
 inline void transposePixelArray(int *pixels, int size, int width, int height) {
 	int *copyImage = (int *)malloc(size * sizeof(int));
-	int i;
+	#pragma omp parallel
+	{ 
+        int i;
+	#pragma omp for schedule(static)
 	for (i = 0; i < size; i++) {
 		copyImage[i] = pixels[i];
 	}
 	int j, k;
+	#pragma omp for schedule(static)
 	for (j = 0; j < height; j++) {
 		for (k = 0; k < width; k++) {
 			pixels[k * height + j] = copyImage[j * width + k];
 		}
-	}
+	} }
 	free(copyImage);
 }
 
