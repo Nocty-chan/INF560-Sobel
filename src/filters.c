@@ -31,7 +31,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   if (rankInGroup == 0) {
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf("Gray filter was applied in %lf seconds. \n", duration);
+    //printf("Gray filter was applied in %lf seconds. \n", duration);
   }
 
   if (rankInGroup == 0) {
@@ -43,7 +43,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   if (rankInGroup == 0) {
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf("Blur filter was applied in %lf seconds. \n", duration);
+    //printf("Blur filter was applied in %lf seconds. \n", duration);
   }
   //fprintf(stderr, "Sobel filter\n");
   //Apply Sobel filter.
@@ -62,7 +62,7 @@ void applyFiltersDistributedInCommunicator(pixel *picture, int color, int width,
   if (rankInGroup == 0) {
     gettimeofday(&t2, NULL);
     duration = (t2.tv_sec - t1.tv_sec)+((t2.tv_usec-t1.tv_usec)/1e6);
-    printf("Sobel filter was applied in %lf seconds. \n", duration);
+    //printf("Sobel filter was applied in %lf seconds. \n", duration);
   }
 }
 
