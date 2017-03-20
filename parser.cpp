@@ -64,7 +64,8 @@ int main(int argc, char *argv[])
       }
 
       if (currentGifName != "" && nbImages > 0 && grayFilterCost > 0 && blurFilterCost > 0 && sobelFilterCost > 0 && totalCost > 0) {
-        cout << currentGifName << " with " << nbImages << " images" << endl;
+        cout << "Name: " << currentGifName << endl;
+        cout << "Number of images: " << nbImages << endl;
         cout << "Gray filter: " << grayFilterCost << endl;
         cout << "Blur filter: " << blurFilterCost << endl;
         cout << "Sobel filter: " << sobelFilterCost << endl;
