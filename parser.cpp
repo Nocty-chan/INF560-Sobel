@@ -25,7 +25,10 @@ int main(int argc, char *argv[])
     return 1; // exit if file not found
 
   string currentGifName ="";
+  bool currentImage = false;
   int nbImages = 0;
+  int nbThreads = 0;
+  int nbNodes = 0;
   double grayFilterCost = 0, blurFilterCost = 0, sobelFilterCost = 0, totalCost = 0;
 
   // read each line of the file
@@ -50,10 +53,18 @@ int main(int argc, char *argv[])
       }
 
       string firstWord(token[0]);
-      if (currentGifName.compare("") == 0 && firstWord.compare("GIF") == 0) {
-          currentGifName = token[4];
-          nbImages = atoi(token[6]);
-      } else if (grayFilterCost == 0 && firstWord.compare("Gray") == 0){
+      if (currentGifName.compare(token[3]) == 0 && firstWord.compare("Running") == 0) {
+          currentGifName = token[3];
+          currentImage = true;
+          nbThreads = atoi(token[7]);
+          nbNodes = atoi(token[10]);
+      } else if (currentGifName.compare(token[3]) != 0 && firstWord.compare("Running") == 0) {
+        currentImage = false;
+        currentGifName = token[3];
+        nbThreads = atoi(token[7]);
+        nbNodes = atoi(token[10]);
+      }
+       else if (grayFilterCost == 0 && firstWord.compare("Gray") == 0){
           grayFilterCost = atof(token[5]);
       } else if (blurFilterCost == 0 && firstWord.compare("Blur") == 0) {
           blurFilterCost = atof(token[5]);
@@ -63,19 +74,24 @@ int main(int argc, char *argv[])
          totalCost = atof(token[3]);
       }
 
-      if (currentGifName != "" && nbImages > 0 && grayFilterCost > 0 && blurFilterCost > 0 && sobelFilterCost > 0 && totalCost > 0) {
-        cout << "Name: " << currentGifName << endl;
-        cout << "Number of images: " << nbImages << endl;
+      if (currentGifName != "" && totalCost > 0) {
+        if (!currentImage) {
+          cout << "Name: " << currentGifName << endl;
+          cout << "Number of Nodes: " << nbNodes << endl;
+        }
+        /*cout << "Number of images: " << nbImages << endl;
         cout << "Gray filter: " << grayFilterCost << endl;
         cout << "Blur filter: " << blurFilterCost << endl;
-        cout << "Sobel filter: " << sobelFilterCost << endl;
+        cout << "Sobel filter: " << sobelFilterCost << endl;*/
+        cout << "Number of Threads: " << nbThreads << endl;
         cout << "Total Cost: " << totalCost << endl;
         totalCost = 0;
         sobelFilterCost = 0;
         blurFilterCost = 0;
         grayFilterCost = 0;
         nbImages = 0;
-        currentGifName = "";
+        nbThreads = 0;
+        nbNodes = 0;
       }
     }
   }
