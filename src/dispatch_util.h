@@ -1,10 +1,14 @@
+#ifndef DISPATCH
+#define DISPATCH
+
 #include <mpi.h>
 #include <unistd.h>
+#include<omp.h>
+#include<math.h>
 #include <stdio.h>
 #define CONV(l,c,nb_c) \
     (l)*(nb_c)+(c)
 /* ALL METHODS FOR COMMUNICATING WITH OTHER PROCESSES */
-
 
 //Copies image into another one.
 /* Arguments:
@@ -160,15 +164,15 @@ inline void receiveGreyImageFromProcessWithTagAndSize(pixel *image, int src, int
 * int k (input): number of processes that process one image
 * int numberOfImages (input): number of images that need to be gathered
 */
-inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r, int k, int numberOfImages) {
+inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int from, int r, int k, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
     //fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
     receiveGreyImageFromProcessWithTagAndSize(
-      image->p[c],
+      image->p[from + c],
       c * (k + 1),
       c * (k + 1),
-      image->width[c] * image->height[c]);
+      image->width[from + c] * image->height[from + c]);
 
   }
 
@@ -176,10 +180,10 @@ inline void receiveGreyImageFromAllProcessesWithSize(animated_gif *image, int r,
     if (c == 0) continue;
     //fprintf(stderr, "Receiving image %d of size %d.\n", c, image->width[c] * image->height[c]);
     receiveGreyImageFromProcessWithTagAndSize(
-      image->p[c],
+      image->p[from + c],
       c * k + r,
       c * k + r,
-      image->width[c] * image->height[c]);
+      image->width[from + c] * image->height[from + c]);
   }
 }
 
@@ -244,7 +248,7 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     actualSize = chunkSize;
   }
   int *recvCounts = malloc (groupSize * sizeof(int));
-  int *displs = malloc(groupSize * sizeof(int));
+  int *displs = malloc (groupSize * sizeof(int));
   if (rankInGroup == 0) {
     for (i = 0; i < remainingSize; i++) {
       recvCounts[i] = chunkSize + 1;
@@ -257,7 +261,11 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
     //  fprintf(stderr, "Index i: %d, recvCounts : %d, displs: %d\n", i, recvCounts[i], displs[i]);
     }
   }
-
+  /*fprintf(stderr, "displacements and counts\n");
+  fprintf(stderr, "graySend : %p.\n", graySend);
+  fprintf(stderr, "grayResult : %p.\n", grayResult);
+  fprintf(stderr, "recvCounts : %p.\n", recvCounts);
+  fprintf(stderr, "displs : %p.\n", displs);*/
   MPI_Gatherv(
      graySend,
      actualSize,
@@ -268,8 +276,12 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
      MPI_INT,
      0,
      imageCommunicator);
- free(displs);
- free(recvCounts);
+ //fprintf(stderr, "Gathered \n");
+ if (rankInGroup == 0) {
+   free(displs);
+   free(recvCounts);
+ }
+ 
 }
 
 /* Scatter images of the gif to the roots of the communicator.
@@ -279,23 +291,23 @@ inline void gatherGrayImageWithChunkSizeAndRemainingSizeInCommunicator(
 * int r (input): number of images that are assigned to k + 1 processes.
 * int numberOfImages (input): number of images in a gif.
 */
-inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int k, int r, int numberOfImages) {
+inline void sendImagesToRootsOfImageCommunicator(animated_gif *image, int from, int k, int r, int numberOfImages) {
   int c;
   for (c = 1; c < r; c++) {
     //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
     sendImageToProcess(
-      image->width[c],
-      image->height[c],
-      image->p[c],
+      image->width[from + c],
+      image->height[from + c],
+      image->p[from + c],
       c * (k + 1));
   }
   for (c = r; c < numberOfImages; c++) {
     if (c == 0) continue;
     //fprintf(stderr, "Sending image %d of size %d.\n", c, image->width[c] * image->height[c]);
     sendImageToProcess(
-      image->width[c],
-      image->height[c],
-      image->p[c],
+      image->width[from + c],
+      image->height[from + c],
+      image->p[from + c],
       c * k + r);
   }
 }
@@ -326,15 +338,15 @@ inline pixel *receiveImageFromRoot(int *width, int *height, int *size) {
 * int k (input): number of processed for one image.
 * int numberOfImages(input): number of images in a gif.
 */
-inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, animated_gif *image, int r, int k, int numberOfImages) {
+inline void gatherAllImagesToRoot(pixel *picture, int rankInGroup, int size, animated_gif *image, int from, int r, int k, int numberOfImages) {
   int rankInWorld;
   MPI_Comm_rank(MPI_COMM_WORLD, &rankInWorld);
   if (rankInGroup == 0 && rankInWorld != 0) {
     sendGreyImageToProcessWithTagAndSize(picture, 0, rankInWorld, size);
   }
   if (rankInWorld == 0) {
-    copyImageIntoImage(picture, image->p[0], size);
-    receiveGreyImageFromAllProcessesWithSize(image, r, k, numberOfImages);
+    copyImageIntoImage(picture, image->p[from], size);
+    receiveGreyImageFromAllProcessesWithSize(image, from, r, k, numberOfImages);
   }
 }
 
@@ -358,3 +370,26 @@ inline void transposeImage(pixel *image, int size, int width, int height) {
   }
   free(copyImage);
 }
+
+/* Transposes array of int*/
+
+inline void transposePixelArray(int *pixels, int size, int width, int height) {
+	int *copyImage = (int *)malloc(size * sizeof(int));
+	#pragma omp parallel
+	{ 
+        int i;
+	#pragma omp for schedule(static)
+	for (i = 0; i < size; i++) {
+		copyImage[i] = pixels[i];
+	}
+	#pragma omp for schedule(static)
+	for (i = 0; i < size; i++) {
+	  int j = i / width;
+	  int k = i % width;
+	  pixels[k * height + j] = copyImage[j * width + k];
+	}		
+	}
+	free(copyImage);
+}
+
+#endif

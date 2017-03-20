@@ -45,4 +45,4 @@ sobelf:$(OBJ)
 	$(CC) $(CFLAGS) -g -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f sobelf $(OBJ)
+	rm -f sobelf $(OBJ)	
